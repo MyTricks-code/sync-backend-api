@@ -1,0 +1,28 @@
+{
+  "name": "sync-backend",
+  "version": "1.0.0",
+  "description": "Backend Service for Sync- A GDSC AIT PUNE PROJECT",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev" : "npx nodemon index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MyTricks-code/sync-backend-api.git"
+  },
+  "keywords": [],
+  "author": "GDSC AIT PUNE FE's : 2025-26",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/MyTricks-code/sync-backend-api/issues"
+  },
+  "homepage": "https://github.com/MyTricks-code/sync-backend-api#readme",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "express": "^5.2.1",
+    "mongoose": "^9.1.6",
+    "nodemon": "^3.1.11"
+  }
+}
