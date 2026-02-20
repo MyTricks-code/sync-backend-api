@@ -4,73 +4,56 @@ import jwt from 'jsonwebtoken'
 import sendEmail from "../helpers/sendEmail.js";
 
 export const createUser = async (req, res) => {
-    if (!req.body) {
-        return res.json({
-            success: false,
-            message: "Request body is empty"
-        })
-    }
-
-    const { name, email, password } = req.body
-    if (!name || !email || !password) {
-        return res.json({
-            success: false,
-            message: "Missing credentials"
-        })
-    }
-
-    if (!email.endsWith("aitpune.edu.in")) {
-        return res.json({
-            success: false,
-            message: "Only College Email is supported"
-        })
-    }
-
-    if (password.length >= 15) {
-        return res.json({
-            success: false,
-            message: "Too Long Password"
-        })
-    }
-
     try {
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(
-            password, salt
-        )
-        const user = await userModel.create({
-            name: name,
-            email: email,
-            password: hashedPassword,
+        if (!req.body) {
+            return res.status(400).json({ success: false, message: 'Request body is empty' })
+        }
+
+        const { email, name, password } = req.body
+
+        if (!email || !name) {
+            return res.status(400).json({ success: false, message: 'Missing name or email' })
+        }
+
+        // Enforce college domain for Microsoft logins
+
+        // Only accept Microsoft-based signups here
+        // if (!isMicrosoft) {
+        //     return res.status(400).json({ success: false, message: 'This endpoint only supports Microsoft sign-ins' })
+        // }
+
+        // Find existing user or create a new one
+        let user = await userModel.findOne({ email })
+
+        if (user) {
+            return res.json({
+                success :false,
+                message : "User already Exits"
+            })
+        }
+
+        user = await userModel.create({
+            name,
+            email,
+            // authProvider: 'microsoft',
+            password,
+    
         })
         await user.save()
 
-        const token = jwt.sign({id: user._id}, process.env.JWT_SECRET, {expiresIn: '7d'})
+        // Issue JWT cookie (7 days)
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'replace-me', { expiresIn: '7d' })
+
         res.cookie('token', token, {
             httpOnly: true,
-            secure : process.env.NODE_ENV === 'production',
-            // strict : cookies is only send when the request comes form samesite
-            sameSite : process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-            maxAge: 7*24*60*60*1000 //7days
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000
         })
 
-        const mailOptions = {
-            recipient  : email,
-            subject : "Welcome to SYNC - Collaborate and Grow!",
-            text  :  `Hello there a new account is created with : ${user.email}`
-        }
-        sendEmail(mailOptions.recipient, mailOptions.subject, mailOptions.text)
-
-        return res.json({
-            success: true,
-            message: "User created successfully"
-        })
-        
+        return res.json({ success: true, message: 'User created successful;y'})
     } catch (err) {
-        return res.json({
-            success: false,
-            message: "Error creating user: " + err
-        })
+        return res.status(500).json({ success: false, message: 'Error creating user: ' + err })
     }
 }
 
@@ -138,28 +121,50 @@ export const loginUser = async (req, res) => {
 export const sendVerifyOtp = async (req, res)=>{
     try {
         const userId = req.userId
-        const user = await userModel.findById(userId)
-        if(user.isAccountVerified){
-            return res.json({
-                success : false,
-                message : "User already verified"
+
+        if (!userId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Missing user id'
             })
         }
-        const otp  = String(Math.floor(Math.random()*100000)+100000);
-        user.verifyOtp = otp
-        user.verifyOtpExpireAt = Date.now()  + 24*60*60*1000
-        await user.save()
-        
-        // Send otp email
-        const mailOptions = {
-            recipient  : user.email,
-            subject : "Account Verification OTP",
-            text  :  `Your OTP is ${otp}. Verify your otp using this otp`
+
+        const user = await userModel.findById(userId)
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            })
         }
-        sendEmail(mailOptions.recipient, mailOptions.subject, mailOptions.text)
+
+        if (user.isAccountVerified) {
+            return res.json({
+                success: false,
+                message: 'User already verified'
+            })
+        }
+
+        // Generate a 6-digit OTP between 100000 and 999999
+        const otp = String(Math.floor(Math.random() * 900000) + 100000)
+
+        // Store otp and expiry (10 minutes)
+        user.verifyOtp = otp
+        user.verifyOtpExpireAt = Date.now() + 10 * 60 * 1000 // 10 minutes
+        await user.save()
+
+        // Send otp email (await to catch failures)
+        const mailOptions = {
+            recipient: user.email,
+            subject: 'Account Verification OTP',
+            text: `Your OTP is ${otp}. It expires in 10 minutes.`
+        }
+
+        await sendEmail(mailOptions.recipient, mailOptions.subject, mailOptions.text)
+
         return res.json({
-            success : true,
-            message : "OTP send"
+            success: true,
+            message: 'OTP sent'
         })
     }catch (err){
         return res.json({
@@ -186,3 +191,54 @@ export const logoutUser = async (req, res)=>{
         })
     }
 }
+
+// export const microsoftLogin = async (req, res) => {
+//     try {
+//         const { idToken } = req.body
+
+//         if (!idToken) {
+//             return res.status(400).json({ success: false, message: 'Missing idToken' })
+//         }
+
+//         // Verify token with Microsoft JWKS
+//         const payload = await verifyMicrosoftIdToken(idToken)
+
+//         // Microsoft id_token may include email in several claims
+//         const email = payload.email || payload.preferred_username || payload.upn
+//         const name = payload.name || payload.given_name || 'Microsoft User'
+
+//         if (!email) {
+//             return res.status(400).json({ success: false, message: 'Token did not contain an email' })
+//         }
+
+//         if (!email.endsWith('@aitpune.edu.in')) {
+//             return res.status(403).json({ success: false, message: 'Only aitpune.edu.in Microsoft accounts are allowed' })
+//         }
+
+//         // Find or create user
+//         let user = await userModel.findOne({ email })
+//         if (!user) {
+//             user = await userModel.create({
+//                 name,
+//                 email,
+//                 authProvider: 'microsoft',
+//                 role: 'student'
+//             })
+//             await user.save()
+//         }
+
+//         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'replace-me', { expiresIn: '7d' })
+
+//         res.cookie('token', token, {
+//             httpOnly: true,
+//             secure: process.env.NODE_ENV === 'production',
+//             sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+//             maxAge: 7 * 24 * 60 * 60 * 1000
+//         })
+
+//         return res.json({ success: true, message: 'Microsoft login successful', user: { id: user._id, email: user.email, name: user.name } })
+//     } catch (err) {
+//         console.error('microsoftLogin error:', err)
+//         return res.status(500).json({ success: false, message: 'Microsoft login verification failed', error: err.message })
+//     }
+// }
