@@ -121,7 +121,7 @@ export const loginUser = async (req, res) => {
 export const sendVerifyOtp = async (req, res)=>{
     try {
         const userId = req.userId
-
+        console.log(userId)
         if (!userId) {
             return res.status(400).json({
                 success: false,
