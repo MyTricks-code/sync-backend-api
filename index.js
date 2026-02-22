@@ -19,15 +19,21 @@ app.use(express.json());
 app.use(cookieParser())
 app.use(bodyParser.urlencoded({ extended: true }));
 
+if (!process.env.MONGO_URI) {
+  console.error('ERROR: MONGO_URI environment variable is missing.');
+  process.exit(1);
+}
+
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-env',
   resave: false,
   saveUninitialized: false,
-  store: new MongoStore({
-    mongoUrl: process.env.MONGO_URI
+  store: MongoStore.create({
+    mongoUrl: process.env.MONGO_URI,
+    collectionName: 'sessions'
   }),
   cookie: {
-    secure: process.env.NODE_ENV === 'production', // Set to true only in production with HTTPS
+    secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
