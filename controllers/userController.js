@@ -1,7 +1,7 @@
 import userModel from "../models/userModel.js";
 import bcrypt from "bcrypt";
 import jwt from 'jsonwebtoken'
-import sendEmail from "../helpers/sendEmail.js";
+import sendMail from "../helpers/resendEmail.js";
 
 export const createUser = async (req, res) => {
     try {
@@ -121,7 +121,6 @@ export const loginUser = async (req, res) => {
 export const sendVerifyOtp = async (req, res) => {
     try {
         const userId = req.userId
-        console.log(userId)
         if (!userId) {
             return res.status(400).json({
                 success: false,
@@ -157,10 +156,10 @@ export const sendVerifyOtp = async (req, res) => {
         const mailOptions = {
             recipient: user.email,
             subject: 'Account Verification OTP',
-            text: `Your OTP is ${otp}. It expires in 10 minutes.`
+            content: `Your OTP is ${otp}. It expires in 10 minutes.`
         }
 
-        const emailSent = await sendEmail(mailOptions.recipient, mailOptions.subject, mailOptions.text)
+        const emailSent = await sendMail(mailOptions.recipient, mailOptions.subject, mailOptions.content)
 
         if (!emailSent) {
             return res.status(500).json({
@@ -199,53 +198,55 @@ export const logoutUser = async (req, res) => {
     }
 }
 
-// export const microsoftLogin = async (req, res) => {
-//     try {
-//         const { idToken } = req.body
+/** This is a function to be used for microsoft login- Cant be used because of card issues with Azure 
+export const microsoftLogin = async (req, res) => {
+    try {
+        const { idToken } = req.body
 
-//         if (!idToken) {
-//             return res.status(400).json({ success: false, message: 'Missing idToken' })
-//         }
+        if (!idToken) {
+            return res.status(400).json({ success: false, message: 'Missing idToken' })
+        }
 
-//         // Verify token with Microsoft JWKS
-//         const payload = await verifyMicrosoftIdToken(idToken)
+        // Verify token with Microsoft JWKS
+        const payload = await verifyMicrosoftIdToken(idToken)
 
-//         // Microsoft id_token may include email in several claims
-//         const email = payload.email || payload.preferred_username || payload.upn
-//         const name = payload.name || payload.given_name || 'Microsoft User'
+        // Microsoft id_token may include email in several claims
+        const email = payload.email || payload.preferred_username || payload.upn
+        const name = payload.name || payload.given_name || 'Microsoft User'
 
-//         if (!email) {
-//             return res.status(400).json({ success: false, message: 'Token did not contain an email' })
-//         }
+        if (!email) {
+            return res.status(400).json({ success: false, message: 'Token did not contain an email' })
+        }
 
-//         if (!email.endsWith('@aitpune.edu.in')) {
-//             return res.status(403).json({ success: false, message: 'Only aitpune.edu.in Microsoft accounts are allowed' })
-//         }
+        if (!email.endsWith('@aitpune.edu.in')) {
+            return res.status(403).json({ success: false, message: 'Only aitpune.edu.in Microsoft accounts are allowed' })
+        }
 
-//         // Find or create user
-//         let user = await userModel.findOne({ email })
-//         if (!user) {
-//             user = await userModel.create({
-//                 name,
-//                 email,
-//                 authProvider: 'microsoft',
-//                 role: 'student'
-//             })
-//             await user.save()
-//         }
+        // Find or create user
+        let user = await userModel.findOne({ email })
+        if (!user) {
+            user = await userModel.create({
+                name,
+                email,
+                authProvider: 'microsoft',
+                role: 'student'
+            })
+            await user.save()
+        }
 
-//         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'replace-me', { expiresIn: '7d' })
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'replace-me', { expiresIn: '7d' })
 
-//         res.cookie('token', token, {
-//             httpOnly: true,
-//             secure: process.env.NODE_ENV === 'production',
-//             sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-//             maxAge: 7 * 24 * 60 * 60 * 1000
-//         })
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000
+        })
 
-//         return res.json({ success: true, message: 'Microsoft login successful', user: { id: user._id, email: user.email, name: user.name } })
-//     } catch (err) {
-//         console.error('microsoftLogin error:', err)
-//         return res.status(500).json({ success: false, message: 'Microsoft login verification failed', error: err.message })
-//     }
-// }
+        return res.json({ success: true, message: 'Microsoft login successful', user: { id: user._id, email: user.email, name: user.name } })
+    } catch (err) {
+        console.error('microsoftLogin error:', err)
+        return res.status(500).json({ success: false, message: 'Microsoft login verification failed', error: err.message })
+    }
+}
+*/
