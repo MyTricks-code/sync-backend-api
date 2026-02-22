@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import bodyParser from 'body-parser';
 import connectDB from './config/mongoDB.js';
 import authRouter from './routes/authRoutes.js';
+import taskRouter from './routes/taskRoutes.js';
 
 // config
 // config
@@ -27,6 +28,7 @@ app.get("/", (req, res) => {
 
 // Routes
 app.use("/api/auth", authRouter)
+app.use("/api/task", taskRouter)
 
 app.listen(PORT, () => {
   console.log("Server Started: ", PORT)

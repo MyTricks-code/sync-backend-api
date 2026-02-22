@@ -179,6 +179,54 @@ export const sendVerifyOtp = async (req, res) => {
     }
 }
 
+export const verifyAccount = async(req, res)=>{
+    if(!req.body){
+        return res.json({success: false, message: "Missing Credentials"})
+    }
+    
+
+    try{
+        const userId = req.userId
+        const {otp} = req.body
+        if (!userId || !otp) {
+            return res.status(400).json({
+                success: false,
+                message: 'Missing credentials'
+            })
+        }
+        const user = await userModel.findById(userId)
+        if(otp===user.verifyOtp){
+            user.isAccountVerified = true,
+            await user.save()
+            return res.json({success: true, message: "Account successfully verified"})
+        }else{
+            return res.json({success: false, message: "OTP miss-matched"})
+        }
+
+    }catch(err){
+        return res.json({success: false, message: "Err verifying account: "})
+    }
+}
+
+export const getUserInfo = async(req, res)=>{
+    try{
+        const userId = req.userId
+        if(!userId) return res.json({success: false, message: "Forbidden"})
+        const user = await userModel.findById(userId);
+        return res.json({
+            success: true,
+            data : {
+                name : user.name,
+                email: user.email,
+                role: user.role,
+                clubs:  user.clubs
+            }
+        })
+    }catch(err){
+        return res.json({success: false, message: "Error reading user data"})
+    }
+}
+
 export const logoutUser = async (req, res) => {
     try {
         res.clearCookie('token', {
