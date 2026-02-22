@@ -27,8 +27,8 @@ export const createUser = async (req, res) => {
 
         if (user) {
             return res.json({
-                success :false,
-                message : "User already Exits"
+                success: false,
+                message: "User already Exits"
             })
         }
 
@@ -37,7 +37,7 @@ export const createUser = async (req, res) => {
             email,
             // authProvider: 'microsoft',
             password,
-    
+
         })
         await user.save()
 
@@ -51,7 +51,7 @@ export const createUser = async (req, res) => {
             maxAge: 7 * 24 * 60 * 60 * 1000
         })
 
-        return res.json({ success: true, message: 'User created successful;y'})
+        return res.json({ success: true, message: 'User created successful;y' })
     } catch (err) {
         return res.status(500).json({ success: false, message: 'Error creating user: ' + err })
     }
@@ -97,7 +97,7 @@ export const loginUser = async (req, res) => {
 
         // Create JWT token
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' })
-        
+
         res.cookie('token', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -118,7 +118,7 @@ export const loginUser = async (req, res) => {
     }
 }
 
-export const sendVerifyOtp = async (req, res)=>{
+export const sendVerifyOtp = async (req, res) => {
     try {
         const userId = req.userId
         console.log(userId)
@@ -160,31 +160,38 @@ export const sendVerifyOtp = async (req, res)=>{
             text: `Your OTP is ${otp}. It expires in 10 minutes.`
         }
 
-        await sendEmail(mailOptions.recipient, mailOptions.subject, mailOptions.text)
+        const emailSent = await sendEmail(mailOptions.recipient, mailOptions.subject, mailOptions.text)
+
+        if (!emailSent) {
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to send OTP email'
+            })
+        }
 
         return res.json({
             success: true,
             message: 'OTP sent'
         })
-    }catch (err){
+    } catch (err) {
         return res.json({
-            success : false
+            success: false
         })
     }
 }
 
-export const logoutUser = async (req, res)=>{
-    try{
+export const logoutUser = async (req, res) => {
+    try {
         res.clearCookie('token', {
             httpOnly: true,
-            secure : process.env.NODE_ENV === 'production',
-            sameSite : process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-        }) 
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+        })
         return res.json({
             success: true,
             message: 'Logged Out'
         })
-    }catch (err){
+    } catch (err) {
         return res.json({
             success: false,
             message: err.message
