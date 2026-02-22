@@ -1,5 +1,8 @@
 import express from 'express'
 import 'dotenv/config'
+import dns from 'node:dns';
+
+dns.setDefaultResultOrder('ipv4first');
 import cookieParser from 'cookie-parser';
 import bodyParser from 'body-parser';
 import session from 'express-session';
