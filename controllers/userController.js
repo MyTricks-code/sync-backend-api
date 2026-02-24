@@ -15,6 +15,10 @@ export const createUser = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Missing name or email' })
         }
 
+        if(password.length>20){
+            return res.status(400).json({ success: false, message: 'Too long Password' })
+        }
+
         // Enforce college domain for Microsoft logins
 
         // Only accept Microsoft-based signups here
@@ -32,11 +36,13 @@ export const createUser = async (req, res) => {
             })
         }
 
+        const hashedPassword = await bcrypt.hash(password, 10);
+
         user = await userModel.create({
             name,
             email,
             // authProvider: 'microsoft',
-            password,
+            password: hashedPassword,
 
         })
         await user.save()
@@ -197,6 +203,8 @@ export const verifyAccount = async(req, res)=>{
         const user = await userModel.findById(userId)
         if(otp===user.verifyOtp){
             user.isAccountVerified = true,
+            user.verifyOtp = "";
+            user.verifyOtpExpireAt =0;
             await user.save()
             return res.json({success: true, message: "Account successfully verified"})
         }else{
@@ -224,6 +232,86 @@ export const getUserInfo = async(req, res)=>{
         })
     }catch(err){
         return res.json({success: false, message: "Error reading user data"})
+    }
+}
+
+export const sendForgetPasswordOtp = async (req, res)=>{
+    if(!req.body){
+        return res.json({ success: false, message: 'Missing request body' })
+    }
+    const {email} = req.body
+    if(!email){
+        return res.json({success: false, message : "Missing Credentials"})
+    }
+    try{
+        const user = await userModel.findOne({email : email})
+        if(!user){
+            return res.json({success: false, message : "Invalid Email"})
+        }
+
+        const otp = String(Math.floor(Math.random() * 900000) + 100000)
+        user.resetOtp  = otp
+        user.resetOtpExpireAt = Date.now() + 10 * 60 * 1000 // 10 minutes
+        await user.save()
+
+        const mailOptions = {
+            recipient: email,
+            subject: 'Reset your Password',
+            content: `Your OTP is ${otp}. It expires in 10 minutes.`
+        }
+
+        const emailSent = await sendMail(mailOptions.recipient, mailOptions.subject, mailOptions.content)
+
+        if (!emailSent) {
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to send OTP email'
+            })
+        }
+
+        return res.json({
+            success: true,
+            message: 'OTP sent'
+        })
+    }catch(err){
+        return res.json({success: false, message: "Error sending forget password otp: ", err})
+    }
+}
+
+export const verifyForgotPasswordOtp = async (req, res)=>{
+    if(!req.body){
+        return res.json({success: false, message: "Empty request body"})
+    }
+    const {otp, email, password} = req.body
+    if(!otp || !email || !password){
+        res.json({success: false, message: "Missing Credentials"})
+    }
+    try{
+        const user = await userModel.findOne({email});
+        if(!user){
+            return res.json({success: false, message: "Missing User"})
+        }
+        if(user.resetOtpExpireAt<Date.now()){
+            return res.json({success: false, message: "OTP Expired"})
+        }
+
+        if(user.resetOtp!==otp){
+            return res.json({success: false, message: "Invalid OTP"})
+        }
+
+        if(password.length>20){
+            return res.status(400).json({ success: false, message: 'Too long Password' })
+        }
+        const hashedPassword = await bcrypt.hash(password, 10)
+        user.password = hashedPassword
+        user.resetOtp = ''
+        user.resetOtpExpireAt = 0;
+        await user.save()
+
+        return res.json({success: true, message: "Successfully updated Password"})
+        
+    }catch(err){
+        return res.json({ success: false, message: 'Error Verifying Forget Pass Otp: ', err})
     }
 }
 
