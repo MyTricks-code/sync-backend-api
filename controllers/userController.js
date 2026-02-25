@@ -9,9 +9,9 @@ export const createUser = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Request body is empty' })
         }
 
-        const { email, name, password } = req.body
+        const { email, name, password, year } = req.body
 
-        if (!email || !name) {
+        if (!email || !name || !password || !year) {
             return res.status(400).json({ success: false, message: 'Missing name or email' })
         }
 
@@ -44,6 +44,7 @@ export const createUser = async (req, res) => {
             email,
             // authProvider: 'microsoft',
             password: hashedPassword,
+            year: year
 
         })
         await user.save()
@@ -228,7 +229,10 @@ export const getUserInfo = async(req, res)=>{
                 name : user.name,
                 email: user.email,
                 role: user.role,
-                clubs:  user.clubs
+                clubs:  user.clubs,
+                year : user.year,
+                bio : user.bio,
+                callSign : user.callSign
             }
         })
     }catch(err){
