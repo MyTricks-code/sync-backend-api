@@ -15,7 +15,7 @@ export const createUser = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Missing name or email' })
         }
 
-        if(password.length>20){
+        if (password.length > 20) {
             return res.status(400).json({ success: false, message: 'Too long Password' })
         }
 
@@ -27,7 +27,7 @@ export const createUser = async (req, res) => {
         // }
 
         // Find existing user or create a new one
-        
+
         let user = await userModel.findOne({ email })
 
         if (user) {
@@ -112,7 +112,6 @@ export const loginUser = async (req, res) => {
             sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         })
-
         return res.json({
             success: true,
             message: "Login successful",
@@ -167,14 +166,7 @@ export const sendVerifyOtp = async (req, res) => {
             content: `Your OTP is ${otp}. It expires in 10 minutes.`
         }
 
-        const emailSent = await sendMail(mailOptions.recipient, mailOptions.subject, mailOptions.content)
-
-        if (!emailSent) {
-            return res.status(500).json({
-                success: false,
-                message: 'Failed to send OTP email'
-            })
-        }
+        sendMail(mailOptions.recipient, mailOptions.subject, mailOptions.content)
 
         return res.json({
             success: true,
@@ -187,15 +179,15 @@ export const sendVerifyOtp = async (req, res) => {
     }
 }
 
-export const verifyAccount = async(req, res)=>{
-    if(!req.body){
-        return res.json({success: false, message: "Missing Credentials"})
+export const verifyAccount = async (req, res) => {
+    if (!req.body) {
+        return res.json({ success: false, message: "Missing Credentials" })
     }
-    
 
-    try{
+
+    try {
         const userId = req.userId
-        const {otp} = req.body
+        const { otp } = req.body
         if (!userId || !otp) {
             return res.status(400).json({
                 success: false,
@@ -203,59 +195,59 @@ export const verifyAccount = async(req, res)=>{
             })
         }
         const user = await userModel.findById(userId)
-        if(otp===user.verifyOtp){
+        if (otp === user.verifyOtp) {
             user.isAccountVerified = true,
-            user.verifyOtp = "";
-            user.verifyOtpExpireAt =0;
+                user.verifyOtp = "";
+            user.verifyOtpExpireAt = 0;
             await user.save()
-            return res.json({success: true, message: "Account successfully verified"})
-        }else{
-            return res.json({success: false, message: "OTP miss-matched"})
+            return res.json({ success: true, message: "Account successfully verified" })
+        } else {
+            return res.json({ success: false, message: "OTP miss-matched" })
         }
 
-    }catch(err){
-        return res.json({success: false, message: "Err verifying account: "})
+    } catch (err) {
+        return res.json({ success: false, message: "Err verifying account: " })
     }
 }
 
-export const getUserInfo = async(req, res)=>{
-    try{
+export const getUserInfo = async (req, res) => {
+    try {
         const userId = req.userId
-        if(!userId) return res.json({success: false, message: "Forbidden"})
+        if (!userId) return res.json({ success: false, message: "Forbidden" })
         const user = await userModel.findById(userId);
         return res.json({
             success: true,
-            data : {
-                name : user.name,
+            data: {
+                name: user.name,
                 email: user.email,
                 role: user.role,
-                clubs:  user.clubs,
-                year : user.year,
-                bio : user.bio,
-                callSign : user.callSign
+                clubs: user.clubs,
+                year: user.year,
+                bio: user.bio,
+                callSign: user.callSign
             }
         })
-    }catch(err){
-        return res.json({success: false, message: "Error reading user data"})
+    } catch (err) {
+        return res.json({ success: false, message: "Error reading user data" })
     }
 }
 
-export const sendForgetPasswordOtp = async (req, res)=>{
-    if(!req.body){
+export const sendForgetPasswordOtp = async (req, res) => {
+    if (!req.body) {
         return res.json({ success: false, message: 'Missing request body' })
     }
-    const {email} = req.body
-    if(!email){
-        return res.json({success: false, message : "Missing Credentials"})
+    const { email } = req.body
+    if (!email) {
+        return res.json({ success: false, message: "Missing Credentials" })
     }
-    try{
-        const user = await userModel.findOne({email : email})
-        if(!user){
-            return res.json({success: false, message : "Invalid Email"})
+    try {
+        const user = await userModel.findOne({ email: email })
+        if (!user) {
+            return res.json({ success: false, message: "Invalid Email" })
         }
 
         const otp = String(Math.floor(Math.random() * 900000) + 100000)
-        user.resetOtp  = otp
+        user.resetOtp = otp
         user.resetOtpExpireAt = Date.now() + 10 * 60 * 1000 // 10 minutes
         await user.save()
 
@@ -265,46 +257,39 @@ export const sendForgetPasswordOtp = async (req, res)=>{
             content: `Your OTP is ${otp}. It expires in 10 minutes.`
         }
 
-        const emailSent = await sendMail(mailOptions.recipient, mailOptions.subject, mailOptions.content)
-
-        if (!emailSent) {
-            return res.status(500).json({
-                success: false,
-                message: 'Failed to send OTP email'
-            })
-        }
+        sendMail(mailOptions.recipient, mailOptions.subject, mailOptions.content)
 
         return res.json({
             success: true,
             message: 'OTP sent'
         })
-    }catch(err){
-        return res.json({success: false, message: "Error sending forget password otp: ", err})
+    } catch (err) {
+        return res.json({ success: false, message: "Error sending forget password otp: ", err })
     }
 }
 
-export const verifyForgotPasswordOtp = async (req, res)=>{
-    if(!req.body){
-        return res.json({success: false, message: "Empty request body"})
+export const verifyForgotPasswordOtp = async (req, res) => {
+    if (!req.body) {
+        return res.json({ success: false, message: "Empty request body" })
     }
-    const {otp, email, password} = req.body
-    if(!otp || !email || !password){
-        res.json({success: false, message: "Missing Credentials"})
+    const { otp, email, password } = req.body
+    if (!otp || !email || !password) {
+        res.json({ success: false, message: "Missing Credentials" })
     }
-    try{
-        const user = await userModel.findOne({email});
-        if(!user){
-            return res.json({success: false, message: "Missing User"})
+    try {
+        const user = await userModel.findOne({ email });
+        if (!user) {
+            return res.json({ success: false, message: "Missing User" })
         }
-        if(user.resetOtpExpireAt<Date.now()){
-            return res.json({success: false, message: "OTP Expired"})
+        if (user.resetOtpExpireAt < Date.now()) {
+            return res.json({ success: false, message: "OTP Expired" })
         }
 
-        if(user.resetOtp!==otp){
-            return res.json({success: false, message: "Invalid OTP"})
+        if (user.resetOtp !== otp) {
+            return res.json({ success: false, message: "Invalid OTP" })
         }
 
-        if(password.length>20){
+        if (password.length > 20) {
             return res.status(400).json({ success: false, message: 'Too long Password' })
         }
         const hashedPassword = await bcrypt.hash(password, 10)
@@ -313,10 +298,10 @@ export const verifyForgotPasswordOtp = async (req, res)=>{
         user.resetOtpExpireAt = 0;
         await user.save()
 
-        return res.json({success: true, message: "Successfully updated Password"})
-        
-    }catch(err){
-        return res.json({ success: false, message: 'Error Verifying Forget Pass Otp: ', err})
+        return res.json({ success: true, message: "Successfully updated Password" })
+
+    } catch (err) {
+        return res.json({ success: false, message: 'Error Verifying Forget Pass Otp: ', err })
     }
 }
 

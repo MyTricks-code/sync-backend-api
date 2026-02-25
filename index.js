@@ -13,12 +13,14 @@ const app = express()
 connectDB()
 
 // Middlewares
+const ORIGIN = process.env.ORIGIN || 'http://localhost:5173'
+console.log(ORIGIN)
 app.use(express.json());
 app.use(cookieParser())
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(
   cors({
-    origin: process.env.ORIGIN || 'http://localhost:5173', // react frontend
+    origin: ORIGIN,
     credentials: true,
   })
 );

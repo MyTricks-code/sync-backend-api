@@ -12,8 +12,8 @@ const sendMail = async (recipient, subject, content) => {
         });
         return true
     } catch (err) {
-        return false,
-        console.log("Error Sending Mail: " + err)
+        console.log("Error Sending Mail: " + err);
+        return false;
     }
 }
 
