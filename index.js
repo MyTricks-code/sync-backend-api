@@ -5,7 +5,7 @@ import bodyParser from 'body-parser';
 import connectDB from './config/mongoDB.js';
 import authRouter from './routes/authRoutes.js';
 import taskRouter from './routes/taskRoutes.js';
-
+import cors from 'cors'
 // config
 // config
 const PORT = process.env.PORT || 8000
@@ -16,6 +16,13 @@ connectDB()
 app.use(express.json());
 app.use(cookieParser())
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(
+  cors({
+    origin: "http://localhost:5173", // react frontend
+    credentials: true,
+  })
+);
+
 
 if (!process.env.MONGO_URI) {
   console.error('ERROR: MONGO_URI environment variable is missing.');

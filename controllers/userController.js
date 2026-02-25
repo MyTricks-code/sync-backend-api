@@ -27,6 +27,7 @@ export const createUser = async (req, res) => {
         // }
 
         // Find existing user or create a new one
+        
         let user = await userModel.findOne({ email })
 
         if (user) {
