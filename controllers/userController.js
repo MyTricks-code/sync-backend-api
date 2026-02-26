@@ -324,6 +324,40 @@ export const logoutUser = async (req, res) => {
     }
 }
 
+// Singular func to update multiple fields
+export const updateUserInfo = async (req, res)=>{
+    if(!req.body){
+        return res.json({success: false, message: "No request body"})
+    }
+    const userId = req.userId
+    if(!userId){
+        return res.json({success: false, message: "Not Authenticated"})
+    }
+    try{
+        const {number, bio, callSign} = req.body
+        if(!number && !bio && !callSign){
+            return res.json({success: false, message: "No Params provided"})
+        }
+        const user= await userModel.findById(userId)
+        if(!user){
+            return res.json({success: false, message: "User Not fund"})
+        }
+        if(number){
+            user.number = number
+        }
+        if(bio){
+            user.bio=bio
+        }
+        if(callSign){
+            user.callSign = callSign
+        }
+        await user.save()
+        return res.json({success: true, message: "Profile updated successfully"})
+    }catch (err){
+        return res.json({success: false, message: "Error updating profile: ", err})
+    }
+}
+
 /** This is a function to be used for microsoft login- Cant be used because of card issues with Azure 
 export const microsoftLogin = async (req, res) => {
     try {

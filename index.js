@@ -6,24 +6,23 @@ import connectDB from './config/mongoDB.js';
 import authRouter from './routes/authRoutes.js';
 import taskRouter from './routes/taskRoutes.js';
 import cors from 'cors'
-// config
-// config
+
 const PORT = process.env.PORT || 8000
 const app = express()
 connectDB()
 
 // Middlewares
 const ORIGIN = process.env.ORIGIN || 'http://localhost:5173'
-console.log(ORIGIN)
+console.log("CORS Origin set to:", ORIGIN)
 app.use(express.json());
 app.use(cookieParser())
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(
-  cors({
-    origin: ORIGIN,
-    credentials: true,
-  })
-);
+// app.use(
+//   cors({
+//     origin: ORIGIN,
+//     credentials: true,
+//   })
+// );
 
 
 if (!process.env.MONGO_URI) {

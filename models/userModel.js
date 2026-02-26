@@ -13,7 +13,8 @@ const userSchema = new mongoose.Schema({
     role : {type : String, default: "rookie"},
     clubs: {type: Array, default: []},
     year : {type: String, required: true},
-    bio : {type: String, default : "Rookie Here. Guide me please hui hui"}
+    bio : {type: String, default : "Rookie Here. Guide me please hui hui"},
+    number : {type: Number}
 }, {timestamps : true})
 
 const userModel = mongoose.model.user || mongoose.model('user', userSchema)
