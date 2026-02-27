@@ -47,6 +47,7 @@ export const createUser = async (req, res) => {
             year: year
 
         })
+        
         await user.save()
 
         // Issue JWT cookie (7 days)
@@ -325,38 +326,55 @@ export const logoutUser = async (req, res) => {
 }
 
 // Singular func to update multiple fields
-export const updateUserInfo = async (req, res)=>{
-    if(!req.body){
-        return res.json({success: false, message: "No request body"})
+export const updateUserInfo = async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Not authenticated"
+      });
     }
-    const userId = req.userId
-    if(!userId){
-        return res.json({success: false, message: "Not Authenticated"})
+
+    const { number, bio, callSign, year } = req.body;
+
+    if (!number && !bio && !callSign && !year) {
+      return res.status(400).json({
+        success: false,
+        message: "No parameters provided"
+      });
     }
-    try{
-        const {number, bio, callSign} = req.body
-        if(!number && !bio && !callSign){
-            return res.json({success: false, message: "No Params provided"})
-        }
-        const user= await userModel.findById(userId)
-        if(!user){
-            return res.json({success: false, message: "User Not fund"})
-        }
-        if(number){
-            user.number = number
-        }
-        if(bio){
-            user.bio=bio
-        }
-        if(callSign){
-            user.callSign = callSign
-        }
-        await user.save()
-        return res.json({success: true, message: "Profile updated successfully"})
-    }catch (err){
-        return res.json({success: false, message: "Error updating profile: ", err})
+
+    const user = await userModel.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
     }
-}
+
+    if (number) user.number = number;
+    if (bio) user.bio = bio;
+    if (callSign) user.callSign = callSign;
+    if (year) user.year = year;
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully"
+    });
+
+  } catch (err) {
+    console.error("Update error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+  }
+};
 
 /** This is a function to be used for microsoft login- Cant be used because of card issues with Azure 
 export const microsoftLogin = async (req, res) => {
