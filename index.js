@@ -17,12 +17,12 @@ console.log("CORS Origin set to:", ORIGIN)
 app.use(express.json());
 app.use(cookieParser())
 app.use(bodyParser.urlencoded({ extended: true }));
-// app.use(
-//   cors({
-//     origin: ORIGIN,
-//     credentials: true,
-//   })
-// );
+app.use(
+  cors({
+    origin: ORIGIN,
+    credentials: true,
+  })
+);
 
 
 if (!process.env.MONGO_URI) {
