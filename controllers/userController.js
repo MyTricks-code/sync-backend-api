@@ -47,7 +47,7 @@ export const createUser = async (req, res) => {
             year: year
 
         })
-        
+
         await user.save()
 
         // Issue JWT cookie (7 days)
@@ -327,53 +327,72 @@ export const logoutUser = async (req, res) => {
 
 // Singular func to update multiple fields
 export const updateUserInfo = async (req, res) => {
-  try {
-    const userId = req.userId;
+    try {
+        const userId = req.userId;
 
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: "Not authenticated"
-      });
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: "Not authenticated"
+            });
+        }
+
+        const { name, number, bio, callSign, year } = req.body;
+
+        if (!name || !number && !bio && !callSign && !year) {
+            return res.status(400).json({
+                success: false,
+                message: "No parameters provided"
+            });
+        }
+
+        const user = await userModel.findById(userId);
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found"
+            });
+        }
+
+        // Check callSign uniqueness before saving
+        if (callSign && callSign !== user.callSign) {
+            const taken = await userModel.findOne({ callSign, _id: { $ne: userId } });
+            if (taken) {
+                return res.status(409).json({
+                    success: false,
+                    message: `Call sign "${callSign}" is already taken. Please choose another.`
+                });
+            }
+        }
+
+        if (name) user.name = name;
+        if (number) user.number = number;
+        if (bio) user.bio = bio;
+        if (callSign) user.callSign = callSign;
+        if (year) user.year = year;
+
+        await user.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "Profile updated successfully"
+        });
+
+    } catch (err) {
+        console.error("Update error:", err);
+        // Fallback: MongoDB duplicate key error
+        if (err.code === 11000 && err.keyPattern?.callSign) {
+            return res.status(409).json({
+                success: false,
+                message: "That call sign is already taken. Please choose another."
+            });
+        }
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        });
     }
-
-    const { number, bio, callSign, year } = req.body;
-
-    if (!number && !bio && !callSign && !year) {
-      return res.status(400).json({
-        success: false,
-        message: "No parameters provided"
-      });
-    }
-
-    const user = await userModel.findById(userId);
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found"
-      });
-    }
-
-    if (number) user.number = number;
-    if (bio) user.bio = bio;
-    if (callSign) user.callSign = callSign;
-    if (year) user.year = year;
-
-    await user.save();
-
-    return res.status(200).json({
-      success: true,
-      message: "Profile updated successfully"
-    });
-
-  } catch (err) {
-    console.error("Update error:", err);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error"
-    });
-  }
 };
 
 /** This is a function to be used for microsoft login- Cant be used because of card issues with Azure 

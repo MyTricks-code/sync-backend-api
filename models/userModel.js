@@ -11,7 +11,7 @@ const userSchema = new mongoose.Schema({
             return this.authProvider === "local";
         }
     },
-    callSign: { type: String},
+    callSign: { type: String },
     email: {
         type: String, required: function () {
             return this.authProvider === "local";
@@ -39,15 +39,15 @@ const userSchema = new mongoose.Schema({
     googleId: {
         type: String,
     },
-    
+
 }, { timestamps: true })
 
 userSchema.index(
-  { callSign: 1 },
-  {
-    unique: true,
-    partialFilterExpression: { authProvider: "local" }
-  }
+    { callSign: 1 },
+    {
+        unique: true,
+        sparse: true   // allows multiple docs with null/undefined callSign
+    }
 );
 
 const userModel = mongoose.model.user || mongoose.model('user', userSchema)

@@ -37,6 +37,7 @@ app.get("/", (req, res) => {
 // Routes
 app.use("/api/auth", authRouter)
 app.use("/api/task", taskRouter)
+app.use('/api/forms', taskRouter)
 
 app.listen(PORT, () => {
   console.log("Server Started: ", PORT)
