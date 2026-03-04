@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const formSchema = new mongoose.Schema({
   createdBy: {
-    type: mongoose.Schema.Types.UUID,
+    type: mongoose.Schema.Types.ObjectId,
     ref: "User",
     required: true
   },
@@ -19,7 +19,8 @@ const formSchema = new mongoose.Schema({
 
   isPublic: {
     type: Boolean,
-    required: true
+    required: true,
+    default: false
   },
 
   year: {
@@ -28,10 +29,7 @@ const formSchema = new mongoose.Schema({
 
   viewers: [
     {
-      type: {
-        type: mongoose.Schema.Types.UUID,
-        enum: ["text", "email", "number"]
-      }
+      type: String
     }
   ],
 
@@ -41,6 +39,11 @@ const formSchema = new mongoose.Schema({
         type: String,
         required: true,
         enum: ["text", "email", "number", "textarea", "select"]
+      },
+
+      input : {
+        type: String,
+        required: true
       },
 
       required: {

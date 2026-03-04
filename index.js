@@ -6,6 +6,7 @@ import connectDB from './config/mongoDB.js';
 import authRouter from './routes/authRoutes.js';
 import taskRouter from './routes/taskRoutes.js';
 import cors from 'cors'
+import formRouter from './routes/formRoutes.js';
 
 const PORT = process.env.PORT || 8000
 const app = express()
@@ -37,7 +38,7 @@ app.get("/", (req, res) => {
 // Routes
 app.use("/api/auth", authRouter)
 app.use("/api/task", taskRouter)
-app.use('/api/forms', taskRouter)
+app.use('/api/forms', formRouter)
 
 app.listen(PORT, () => {
   console.log("Server Started: ", PORT)

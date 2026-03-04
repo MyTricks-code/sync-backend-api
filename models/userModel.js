@@ -35,10 +35,13 @@ const userSchema = new mongoose.Schema({
         }
     },
     bio: { type: String, default: "Rookie Here. Guide me please hui hui" },
-    number: { type: Number },
+    number: { type: Number, unique: true },
     googleId: {
         type: String,
     },
+    forms: [{
+        type: mongoose.Schema.Types.ObjectId
+    }]
 
 }, { timestamps: true })
 
