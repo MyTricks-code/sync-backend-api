@@ -60,5 +60,5 @@ const formSchema = new mongoose.Schema({
 
 }, { timestamps: true })
 
-const formModel = mongoose.model.task || mongoose.model('form', formSchema)
+const formModel = mongoose.model.form || mongoose.model('form', formSchema)
 export default formModel

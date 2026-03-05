@@ -94,11 +94,6 @@ export const deleteForm = async (req, res)=>{
         });
     }
     try{
-        // @@To implement role checks
-        // const user = await userModel.findById(createdBy)
-        // if(user.role!=='kaptain'){
-        //     return res.json({success: false, message: "Only Captains can form "})
-        // }
         const form = await formModel.findOneAndDelete(
             {_id: formId, createdBy: userId}
         )
@@ -129,5 +124,26 @@ export const userSpecificForms = async (req, res) => {
       success: false,
       message: err.message
     });
+  }
+};
+
+export const getPublicForms = async (req, res) => {
+  try {
+    const forms = await formModel.find({ isPublic: true }).lean();
+    return res.json({ success: true, forms });
+  } catch (err) {
+    return res.json({ success: false, message: err.message });
+  }
+};
+
+export const getFormById = async (req, res) => {
+  const { formId } = req.params;
+  if (!formId) return res.json({ success: false, message: 'Missing formId' });
+  try {
+    const form = await formModel.findById(formId).lean();
+    if (!form) return res.json({ success: false, message: 'Form not found' });
+    return res.json({ success: true, form });
+  } catch (err) {
+    return res.json({ success: false, message: err.message });
   }
 };

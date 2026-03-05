@@ -7,10 +7,14 @@ import authRouter from './routes/authRoutes.js';
 import taskRouter from './routes/taskRoutes.js';
 import cors from 'cors'
 import formRouter from './routes/formRoutes.js';
+import responseRouter from './routes/responseRoutes.js';
+
 
 const PORT = process.env.PORT || 8000
 const app = express()
 connectDB()
+
+
 
 // Middlewares
 const ORIGIN = process.env.ORIGIN || 'http://localhost:5173'
@@ -39,6 +43,7 @@ app.get("/", (req, res) => {
 app.use("/api/auth", authRouter)
 app.use("/api/task", taskRouter)
 app.use('/api/forms', formRouter)
+app.use('/api/response', responseRouter)
 
 app.listen(PORT, () => {
   console.log("Server Started: ", PORT)
