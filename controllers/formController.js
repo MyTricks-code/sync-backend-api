@@ -1,21 +1,22 @@
 import formModel from "../models/formsModel.js";
 import userModel from "../models/userModel.js";
+import organisationModel from "../models/organisationModel.js";
 
-export const createForm = async (req, res)=>{
+export const createForm = async (req, res) => {
 
-    if(!req.body){
-        return res.json({success: false, message: "Empty Request body"})
+    if (!req.body) {
+        return res.json({ success: false, message: "Empty Request body" })
     }
 
     const userId = req.userId
-    const {title, desc, isPublic , year, viewers, fields} = req.body
-    if(!title || !desc || !userId || !year  || !fields){
-        return res.json({success: false, message: "Missing Credentials"})
+    const { title, desc, isPublic, year, viewers, fields } = req.body
+    if (!title || !desc || !userId || !year || !fields) {
+        return res.json({ success: false, message: "Missing Credentials" })
     }
-    try{
+    try {
         const user = await userModel.findById(userId)
-        if(!user){
-            return res.json({success: false, message: "Invalid Creator Details"})
+        if (!user) {
+            return res.json({ success: false, message: "Invalid Creator Details" })
         }
 
         const form = await formModel.create({
@@ -31,17 +32,21 @@ export const createForm = async (req, res)=>{
             userId,
             { $push: { forms: form._id } }
         );
-        return res.json({success: true, message: "Successfully Created Form"})
-    }catch(err){
-        return res.json({success: false, message: "Error creating form: ", err})
+        await organisationModel.findOneAndUpdate(
+            { orgId: req.body.orgId },
+            { $push: { forms: form._id } }
+        );
+        return res.json({ success: true, message: "Successfully Created Form" })
+    } catch (err) {
+        return res.json({ success: false, message: "Error creating form: ", err })
     }
 }
 
 export const editForm = async (req, res) => {
-    if(!req.body){
-        return res.json({success: false, message: "Empty Request body"})
+    if (!req.body) {
+        return res.json({ success: false, message: "Empty Request body" })
     }
-    const {formId} = req.body;
+    const { formId } = req.body;
     const userId = req.userId
     if (!formId || !userId) {
         return res.json({
@@ -81,11 +86,11 @@ export const editForm = async (req, res) => {
     }
 };
 
-export const deleteForm = async (req, res)=>{
-    if(!req.body){
-        return res.json({success: false, message: "Empty Request body"})
+export const deleteForm = async (req, res) => {
+    if (!req.body) {
+        return res.json({ success: false, message: "Empty Request body" })
     }
-    const {formId} = req.body
+    const { formId } = req.body
     const userId = req.userId
     if (!formId || !userId) {
         return res.json({
@@ -93,15 +98,15 @@ export const deleteForm = async (req, res)=>{
             message: "Missing credentials"
         });
     }
-    try{
+    try {
         const form = await formModel.findOneAndDelete(
-            {_id: formId, createdBy: userId}
+            { _id: formId, createdBy: userId }
         )
-        if(!form){
-            return res.json({success: false, message: "Form cant be found or unauthorized"})
+        if (!form) {
+            return res.json({ success: false, message: "Form cant be found or unauthorized" })
         }
-         return res.json({success: true, message: "Successfully Deleted form"})
-    }catch(err){
+        return res.json({ success: true, message: "Successfully Deleted form" })
+    } catch (err) {
         return res.json({
             success: false,
             message: "Error deleting form: ", err,
@@ -110,40 +115,40 @@ export const deleteForm = async (req, res)=>{
 }
 
 export const userSpecificForms = async (req, res) => {
-  try {
+    try {
 
-    const forms = await formModel.find({ createdBy: req.userId }).lean();
+        const forms = await formModel.find({ createdBy: req.userId }).lean();
 
-    return res.json({
-      success: true,
-      forms
-    });
+        return res.json({
+            success: true,
+            forms
+        });
 
-  } catch (err) {
-    return res.json({
-      success: false,
-      message: err.message
-    });
-  }
+    } catch (err) {
+        return res.json({
+            success: false,
+            message: err.message
+        });
+    }
 };
 
 export const getPublicForms = async (req, res) => {
-  try {
-    const forms = await formModel.find({ isPublic: true }).lean();
-    return res.json({ success: true, forms });
-  } catch (err) {
-    return res.json({ success: false, message: err.message });
-  }
+    try {
+        const forms = await formModel.find({ isPublic: true }).lean();
+        return res.json({ success: true, forms });
+    } catch (err) {
+        return res.json({ success: false, message: err.message });
+    }
 };
 
 export const getFormById = async (req, res) => {
-  const { formId } = req.params;
-  if (!formId) return res.json({ success: false, message: 'Missing formId' });
-  try {
-    const form = await formModel.findById(formId).lean();
-    if (!form) return res.json({ success: false, message: 'Form not found' });
-    return res.json({ success: true, form });
-  } catch (err) {
-    return res.json({ success: false, message: err.message });
-  }
+    const { formId } = req.params;
+    if (!formId) return res.json({ success: false, message: 'Missing formId' });
+    try {
+        const form = await formModel.findById(formId).lean();
+        if (!form) return res.json({ success: false, message: 'Form not found' });
+        return res.json({ success: true, form });
+    } catch (err) {
+        return res.json({ success: false, message: err.message });
+    }
 };
