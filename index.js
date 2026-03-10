@@ -8,6 +8,7 @@ import taskRouter from './routes/taskRoutes.js';
 import cors from 'cors'
 import formRouter from './routes/formRoutes.js';
 import responseRouter from './routes/responseRoutes.js';
+import adminRouter from './routes/adminRoutes.js';
 
 
 const PORT = process.env.PORT || 8000
@@ -44,6 +45,7 @@ app.use("/api/auth", authRouter)
 app.use("/api/task", taskRouter)
 app.use('/api/forms', formRouter)
 app.use('/api/response', responseRouter)
+app.use('/api/admin', adminRouter);
 
 app.listen(PORT, () => {
   console.log("Server Started: ", PORT)

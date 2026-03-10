@@ -1,3 +1,5 @@
+// Don't delete or use This. Organization is created directly in the db. This is solely for reference
+/*
 import mongoose from "mongoose";
 
 const organizationSchema = new mongoose.Schema({
@@ -37,3 +39,4 @@ const organizationSchema = new mongoose.Schema({
 
 const organizationModel = mongoose.model.organization || mongoose.model('organization', organizationSchema)
 export default organizationModel
+*/

@@ -17,7 +17,7 @@ const responseSchema = new mongoose.Schema({
   answers: {
     type: Object,
     default: {}
-  }
+  },
 
 }, { timestamps: true });
 
