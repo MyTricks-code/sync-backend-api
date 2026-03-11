@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const formSchema = new mongoose.Schema({
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
+    ref: "organization",
     required: true
   },
 
@@ -26,12 +26,6 @@ const formSchema = new mongoose.Schema({
   year: {
     type: String
   },
-
-  viewers: [
-    {
-      type: String
-    }
-  ],
 
   fields: [
     {

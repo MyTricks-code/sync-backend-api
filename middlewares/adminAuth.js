@@ -17,7 +17,7 @@ const adminAuth = async (req, res, next)=>{
             email: decodeToken.email,
             club: decodeToken.club
             };
-            console.log(req.body)
+            // console.log(req.body)
         }else{
             return res.json({
             success: false,
