@@ -57,6 +57,22 @@ export const adminLogin = async (req, res) => {
   }
 };
 
+export const adminLogout = async(req, res)=>{
+  try{
+    res.clearCookie('adminToken', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+        })
+        return res.json({
+            success: true,
+            message: 'Logged Out'
+    })
+  }catch(err){
+    return res.json({success: false, message: "error in logout: ", err})
+  }
+}
+
 export const addMember = async(req, res)=>{
   /**
    * To do:
