@@ -4,7 +4,9 @@ import {
   submitResponse,
   getFormResponses,
   getUserResponses,
-  deleteResponse
+  deleteResponse,
+  addReview,
+  updateDecision
 } from "../controllers/responseController.js";
 
 import userAuth from "../middlewares/userAuth.js";
@@ -17,5 +19,7 @@ responseRouter.get("/get-form-responses/:formId", adminAuth, getFormResponses)
 responseRouter.get("/get-user-responses", userAuth, getUserResponses)
 responseRouter.delete("/delete-response/:responseId", userAuth, deleteResponse)
 
+responseRouter.post("/add-review", adminAuth, addReview)
+responseRouter.post("/update-decision", adminAuth, updateDecision)
 
 export default responseRouter

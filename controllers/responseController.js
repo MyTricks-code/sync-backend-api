@@ -77,7 +77,7 @@ export const getFormResponses = async (req, res) => {
             return res.json({success: false, message: "Unauthorized to view these responses"})
         }
 
-        const responses = await responseModel.find({ formId: formId }).lean()
+        const responses = await responseModel.find({ formId: formId }).sort({ averageScore: -1 }).lean()
 
         return res.json({
             success:true,
@@ -157,4 +157,82 @@ export const deleteResponse = async (req, res) => {
             err
         })
     }
+}
+
+export const addReview = async (req,res)=>{
+
+  const { responseId, scores, comment, reviewerName, reviewerRole } = req.body
+  const reviewerId = req.userId
+
+  if(!responseId){
+    return res.json({success:false,message:"Missing responseId"})
+  }
+
+  try{
+
+    const response = await responseModel.findById(responseId)
+
+    if(!response){
+      return res.json({success:false,message:"Response not found"})
+    }
+
+    const scoreValues = Object.values(scores || {}).filter(v => v !== undefined)
+
+    const totalScore = scoreValues.reduce((a,b)=>a+b,0)
+
+    response.review.push({
+      reviewerId,
+      reviewerName,
+      reviewerRole,
+      scores,
+      totalScore,
+      comment
+    })
+
+    const avg =
+      response.review.reduce((acc,r)=>acc+r.totalScore,0) /
+      response.review.length
+
+    response.averageScore = avg
+
+    await response.save()
+
+    return res.json({
+      success:true,
+      message:"Review added",
+      averageScore:avg
+    })
+
+  }catch(err){
+    return res.json({
+      success:false,
+      message:"Error adding review",
+      err:err.message
+    })
+  }
+}
+
+export const updateDecision = async (req,res)=>{
+
+  const { responseId, decision } = req.body
+
+  try{
+
+    await responseModel.findByIdAndUpdate(
+      responseId,
+      { decision }
+    )
+
+    return res.json({
+      success:true,
+      message:"Decision updated"
+    })
+
+  }catch(err){
+    return res.json({
+      success:false,
+      message:"Error updating decision",
+      err:err.message
+    })
+  }
 }
