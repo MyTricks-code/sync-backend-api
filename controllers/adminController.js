@@ -109,3 +109,16 @@ export const deleteMember = async(req, res)=>{
     return res.json({success: false, message: "Error deleting member: ", err})
   }
 }
+
+export const getAllOrg = async(req, res)=>{
+  try{
+    const data = await mongoose.connection.collection('organization').find({}, {projection: {name: 1}}).toArray();
+    if(!data){
+      return res.json({success:false, message: "No data found: ", err})
+    }
+    
+    return res.json({success:true, message: "info found", data:data})
+  }catch(err){
+    return res.json({success:false, message: "Error getting info of all clubs: ", err})
+  }
+}
