@@ -138,3 +138,41 @@ export const getAllOrg = async(req, res)=>{
     return res.json({success:false, message: "Error getting info of all clubs: ", err})
   }
 }
+
+export const getAdminInfo = async (req, res) => {
+  try {
+    const { email, club } = req.body;
+    if (!email || !club) {
+      return res.json({ success: false, message: "Missing credentials" });
+    }
+    
+    const org = await connectOrg(club);
+    if (!org) {
+      return res.json({ success: false, message: "Organization not found" });
+    }
+    
+    const admin = org.admins.find(a => a.email === email);
+    if (!admin) {
+      return res.json({ success: false, message: "Admin not found in organization" });
+    }
+    
+    return res.json({
+      success: true,
+      data: {
+        name: admin.name || club + ' Admin',
+        email: admin.email,
+        role: 'Admin',
+        avatar: org.logo || org.img,
+        club: {
+            id: org.abbr || club,
+            name: org.name || club,
+            abbr: org.abbr || club,
+            logo: org.logo || org.img,
+            role: 'Admin'
+        }
+      }
+    });
+  } catch (err) {
+    return res.json({ success: false, message: "Error getting admin info: " + err.message });
+  }
+};
