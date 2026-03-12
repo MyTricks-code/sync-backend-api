@@ -28,7 +28,10 @@ const userSchema = new mongoose.Schema({
     resetOtp: { type: String, default: "" },
     resetOtpExpireAt: { type: Number, default: 0 },
     role: { type: String, default: "rookie" },
-    clubs: { type: Array, default: [] },
+    clubs: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref : "Organization"
+    }],
     year: {
         type: String, required: function () {
             return this.authProvider === "local";

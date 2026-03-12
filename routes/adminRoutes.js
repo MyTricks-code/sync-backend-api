@@ -1,14 +1,16 @@
 import express from 'express'
-import { addMember, adminLogin, adminLogout, deleteMember, getAllOrg, getAdminInfo } from '../controllers/adminController.js'
+import { addMember, adminLogin, adminLogout, deleteMember, getAllOrg, getAdminInfo, getAllMembers } from '../controllers/adminController.js'
 import adminAuth from '../middlewares/adminAuth.js'
+import memberIdForAdmin from '../middlewares/memberIdforAdmin.js'
 
 const adminRouter = express.Router()
 
 adminRouter.post('/login', adminLogin)
-adminRouter.post('/add-member', adminAuth,  addMember)
-adminRouter.post('/remove-member', adminAuth, deleteMember)
+adminRouter.post('/add-member', adminAuth, memberIdForAdmin, addMember)
+adminRouter.post('/remove-member', adminAuth, memberIdForAdmin, deleteMember)
 adminRouter.get('/get-org', getAllOrg)
 adminRouter.get('/get-admin-info', adminAuth, getAdminInfo)
 adminRouter.post('/logout', adminLogout)
+adminRouter.get('/get-club-members', adminAuth, getAllMembers)
 
 export default adminRouter

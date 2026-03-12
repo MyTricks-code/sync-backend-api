@@ -1,7 +1,8 @@
 import userModel from "../models/userModel.js";
 import bcrypt from "bcrypt";
-import jwt from 'jsonwebtoken'
+import jwt from 'jsonwebtoken';
 import sendMail from "../helpers/resendEmail.js";
+import mongoose from "mongoose";
 
 export const createUser = async (req, res) => {
     try {
@@ -215,14 +216,24 @@ export const getUserInfo = async (req, res) => {
     try {
         const userId = req.userId
         if (!userId) return res.json({ success: false, message: "Forbidden" })
+
         const user = await userModel.findById(userId);
+        
+        // Manually fetch club details since 'organization' is not a registered mongoose model
+        let clubData = [];
+        if (user.clubs && user.clubs.length > 0) {
+            const orgIds = user.clubs.map(id => new mongoose.Types.ObjectId(id));
+            const orgs = await mongoose.connection.collection('organization').find({ _id: { $in: orgIds } }).toArray();
+            clubData = orgs.map(org => ({ _id: org._id, name: org.name }));
+        }
+
         return res.json({
             success: true,
             data: {
                 name: user.name,
                 email: user.email,
                 role: user.role,
-                clubs: user.clubs,
+                clubs: clubData,
                 year: user.year,
                 bio: user.bio,
                 callSign: user.callSign
@@ -393,6 +404,45 @@ export const updateUserInfo = async (req, res) => {
             message: "Internal server error"
         });
     }
+};
+
+export const checkMember = async (req, res) => {
+  if (!req.body) {
+    return res.json({ success: false, message: "Empty Body" });
+  }
+
+  const userId = req.userId;
+  const { clubId } = req.body;
+
+  if (!clubId || !userId) {
+    return res.json({ success: false, message: "Missing Credentials" });
+  }
+
+  try {
+    const org = await mongoose.connection
+      .collection("organization")
+      .findOne({ _id: new mongoose.Types.ObjectId(clubId) });
+
+    if (!org) {
+      return res.json({ success: false, message: "Org Not Found" });
+    }
+
+    const isMember = org.members.some(
+      (memberId) => memberId.toString() === userId.toString()
+    );
+
+    return res.json({
+      success: true,
+      message: "Membership verified"
+    });
+
+  } catch (err) {
+    return res.json({
+      success: false,
+      message: "Error checking member",
+      err: err.message
+    });
+  }
 };
 
 /** This is a function to be used for microsoft login- Cant be used because of card issues with Azure 

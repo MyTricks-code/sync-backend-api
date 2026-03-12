@@ -1,7 +1,7 @@
 import responseModel from "../models/responseModel.js";
 import formModel from "../models/formsModel.js";
 import mongoose from "mongoose";
-
+import userModel from "../models/userModel.js";
 
 export const submitResponse = async (req, res) => {
 
@@ -50,7 +50,7 @@ export const submitResponse = async (req, res) => {
 export const getFormResponses = async (req, res) => {
 
     const { formId } = req.params
-    const { club, email } = req.body
+    const { club} = req.body
 
     if (!formId) {
         return res.json({ success: false, message: "Missing formId" })
@@ -61,7 +61,6 @@ export const getFormResponses = async (req, res) => {
     }
 
     try {
-
         const org = await mongoose.connection.collection('organization').findOne({ name: club })
         if (!org) {
             return res.json({ success: false, message: "Organization not found" })
@@ -77,8 +76,7 @@ export const getFormResponses = async (req, res) => {
             return res.json({ success: false, message: "Unauthorized to view these responses" })
         }
 
-        const responses = await responseModel.find({ formId: formId }).sort({ averageScore: -1 }).lean()
-
+        const responses = await responseModel.find({ formId: formId }).sort({ averageScore: -1 }).populate({ path: 'userId', model: userModel, select: 'name email' }).lean()
         return res.json({
             success: true,
             responses
@@ -116,8 +114,6 @@ export const getUserResponses = async (req, res) => {
         })
     }
 }
-
-
 
 export const deleteResponse = async (req, res) => {
 
