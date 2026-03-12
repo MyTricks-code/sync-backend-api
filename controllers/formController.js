@@ -1,5 +1,83 @@
 import formModel from "../models/formsModel.js";
 import mongoose from "mongoose";
+import userModel from "../models/userModel.js";
+
+const toObjectId = (value) => {
+    if (!value || !mongoose.Types.ObjectId.isValid(value)) {
+        return null;
+    }
+
+    return new mongoose.Types.ObjectId(value);
+};
+
+const isOrgAdmin = (org, userId, email) => {
+    if (!org?.admins?.length) {
+        return false;
+    }
+
+    return org.admins.some((admin) => {
+        const matchesUserId = userId && admin.userId && admin.userId.toString() === userId.toString();
+        const matchesEmail = email && admin.email === email;
+        return matchesUserId || matchesEmail;
+    });
+};
+
+const isOrgMember = (org, userId) => {
+    if (!org?.members?.length || !userId) {
+        return false;
+    }
+
+    return org.members.some((memberId) => memberId.toString() === userId.toString());
+};
+
+const findAuthorizedOrganization = async ({ userId, club, email }) => {
+    const normalizedUserId = toObjectId(userId);
+    console.log('[findAuthorizedOrg] userId:', userId, '| normalizedUserId:', normalizedUserId, '| club:', club, '| email:', email);
+
+    if (club) {
+        const org = await mongoose.connection.collection('organization').findOne({ name: club });
+        console.log('[findAuthorizedOrg] club lookup result:', org ? org.name : 'NOT FOUND');
+        if (org) {
+            if (!normalizedUserId && !email) {
+                return org;
+            }
+
+            if (isOrgAdmin(org, normalizedUserId || userId, email) || isOrgMember(org, normalizedUserId || userId)) {
+                return org;
+            }
+        }
+        // fall through — don't return null; try userId-based lookup below
+    }
+
+    if (!normalizedUserId) {
+        console.log('[findAuthorizedOrg] no normalizedUserId, returning null');
+        return null;
+    }
+
+    // Path 1: org document has the user's ID in admins or members
+    const orgByDoc = await mongoose.connection.collection('organization').findOne({
+        $or: [
+            { "admins.userId": normalizedUserId },
+            { members: normalizedUserId }
+        ]
+    });
+    console.log('[findAuthorizedOrg] org-doc lookup result:', orgByDoc ? orgByDoc.name : 'NOT FOUND');
+    if (orgByDoc) return orgByDoc;
+
+    // Path 2 (fallback): user document stores the org IDs in user.clubs
+    const userDoc = await userModel.findById(normalizedUserId).select('clubs').lean();
+    console.log('[findAuthorizedOrg] user.clubs:', userDoc?.clubs);
+    if (userDoc?.clubs?.length) {
+        const orgByUserClubs = await mongoose.connection.collection('organization').findOne({
+            _id: { $in: userDoc.clubs.map(id => new mongoose.Types.ObjectId(id)) }
+        });
+        console.log('[findAuthorizedOrg] user.clubs org lookup:', orgByUserClubs ? orgByUserClubs.name : 'NOT FOUND');
+        return orgByUserClubs || null;
+    }
+
+    console.log('[findAuthorizedOrg] all paths exhausted, returning null');
+    return null;
+};
 
 export const createForm = async (req, res)=>{
 
@@ -120,18 +198,34 @@ export const deleteForm = async (req, res)=>{
 
 export const clubSpecificForms = async (req, res) => {
   try {
-    const {club} = req.body
-    if(!club){
-        return res.json({success: "False", message: "Missing credentials"})
+        const body = req.body || {};
+        const club = req.query.club || body.club;
+    console.log('[clubSpecificForms] req.userId:', req.userId, '| club:', club);
+    const org = await findAuthorizedOrganization({
+        userId: req.userId,
+        club,
+                email: body.email
+    });
+
+    console.log('[clubSpecificForms] org found:', org ? org.name : 'NONE', '| forms:', org?.forms?.length ?? 0);
+
+    if(!org){
+        return res.json({success: false, message: "Unauthorized to view these forms"});
     }
-    const org = await mongoose.connection.collection('organization').findOne({name:  club})
-    const forms = await await mongoose.connection.collection("forms").find({ _id: { $in: org.forms } }).toArray();
+
+    if (!org.forms || org.forms.length === 0) {
+        return res.json({ success: true, forms: [] });
+    }
+
+    const forms = await mongoose.connection.collection("forms").find({ _id: { $in: org.forms } }).toArray();
+    console.log('[clubSpecificForms] returning', forms.length, 'forms');
     return res.json({
       success: true,
       forms
     });
 
   } catch (err) {
+    console.error('[clubSpecificForms] error:', err);
     return res.json({
       success: false,
       message: err.message

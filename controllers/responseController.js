@@ -3,6 +3,37 @@ import formModel from "../models/formsModel.js";
 import mongoose from "mongoose";
 import userModel from "../models/userModel.js";
 
+const isOrgAdmin = (org, userId, email) => {
+    if (!org?.admins?.length) {
+        return false;
+    }
+
+    return org.admins.some((admin) => {
+        const matchesUserId = userId && admin.userId && admin.userId.toString() === userId.toString();
+        const matchesEmail = email && admin.email === email;
+        return matchesUserId || matchesEmail;
+    });
+};
+
+const isOrgMember = (org, userId) => {
+    if (!org?.members?.length || !userId) {
+        return false;
+    }
+
+    return org.members.some((memberId) => memberId.toString() === userId.toString());
+};
+
+const getFormOrganization = async (formId) => {
+    const form = await formModel.findById(formId).lean();
+
+    if (!form) {
+        return { form: null, org: null };
+    }
+
+    const org = await mongoose.connection.collection('organization').findOne({ _id: form.createdBy });
+    return { form, org };
+};
+
 export const submitResponse = async (req, res) => {
 
     if (!req.body) {
@@ -50,29 +81,40 @@ export const submitResponse = async (req, res) => {
 export const getFormResponses = async (req, res) => {
 
     const { formId } = req.params
-    const { club} = req.body
+    const userId = req.userId
+    const body = req.body || {}
+    const { club, email } = body
 
     if (!formId) {
         return res.json({ success: false, message: "Missing formId" })
     }
 
-    if (!club) {
-        return res.json({ success: false, message: "Unauthorized. Admin club not found." })
-    }
-
     try {
-        const org = await mongoose.connection.collection('organization').findOne({ name: club })
-        if (!org) {
-            return res.json({ success: false, message: "Organization not found" })
-        }
 
-        const form = await formModel.findById(formId)
+        const { form, org } = await getFormOrganization(formId)
 
         if (!form) {
             return res.json({ success: false, message: "Form not found" })
         }
 
-        if (form.createdBy.toString() !== org._id.toString()) {
+        if (!org) {
+            return res.json({ success: false, message: "Organization not found" })
+        }
+
+        // Primary check: org's admins/members arrays
+        let canAccess = isOrgAdmin(org, userId, email) || isOrgMember(org, userId)
+
+        // Fallback: check via user document's clubs array (covers data inconsistency)
+        if (!canAccess && userId && mongoose.Types.ObjectId.isValid(userId)) {
+            const userDoc = await userModel.findById(userId).select('clubs').lean();
+            if (userDoc?.clubs?.length) {
+                canAccess = userDoc.clubs.some(
+                    (clubId) => clubId.toString() === org._id.toString()
+                );
+            }
+        }
+
+        if (!canAccess) {
             return res.json({ success: false, message: "Unauthorized to view these responses" })
         }
 
@@ -157,8 +199,9 @@ export const deleteResponse = async (req, res) => {
 
 export const addReview = async (req, res) => {
 
-    const { responseId, scores, comment, reviewerName, reviewerRole } = req.body
+    const { responseId, scores, comment, reviewerName } = req.body
     const reviewerId = req.userId
+    const { email } = req.body
 
     if (!responseId) {
         return res.json({ success: false, message: "Missing responseId" })
@@ -170,6 +213,22 @@ export const addReview = async (req, res) => {
 
         if (!response) {
             return res.json({ success: false, message: "Response not found" })
+        }
+
+        const { form, org } = await getFormOrganization(response.formId)
+
+        if (!form || !org) {
+            return res.json({ success: false, message: "Organization not found" })
+        }
+
+        const reviewerRole = isOrgAdmin(org, reviewerId, email)
+            ? "admin"
+            : isOrgMember(org, reviewerId)
+                ? "member"
+                : null
+
+        if (!reviewerRole) {
+            return res.json({ success: false, message: "Unauthorized to review this response" })
         }
 
         const scoreValues = Object.values(scores || {}).filter(v => v !== undefined)
