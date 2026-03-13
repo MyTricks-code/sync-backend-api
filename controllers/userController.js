@@ -431,6 +431,13 @@ export const checkMember = async (req, res) => {
       (memberId) => memberId.toString() === userId.toString()
     );
 
+    if (!isMember) {
+      return res.json({
+        success: false,
+        message: "User is not a member of this organisation",
+      });
+    }
+
     return res.json({
       success: true,
       message: "Membership verified"
