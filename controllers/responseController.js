@@ -40,7 +40,7 @@ export const submitResponse = async (req, res) => {
         return res.json({ success: false, message: "Empty Request body" })
     }
 
-    const { formId, answers } = req.body
+    const { formId, answers, priority } = req.body
     const userId = req.userId
 
     if (!formId || !answers || !userId) {
@@ -58,7 +58,8 @@ export const submitResponse = async (req, res) => {
         const response = await responseModel.create({
             formId: formId,
             userId: userId,
-            answers: answers
+            answers: answers,
+            priority: priority || null
         })
 
         return res.json({
@@ -67,6 +68,14 @@ export const submitResponse = async (req, res) => {
         })
 
     } catch (err) {
+
+        if (err.code === 11000) {
+            return res.json({
+                success: false,
+                message: "Priority already used or form already submitted"
+            })
+        }
+        
         return res.json({
             success: false,
             message: "Error submitting response",

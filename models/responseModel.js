@@ -19,6 +19,13 @@ const responseSchema = new mongoose.Schema({
     default: {}
   },
 
+  priority: {
+    type: Number,
+    min: 1,
+    max: 10,
+    default: null
+  },
+
   review: [
     {
       reviewerId: {
@@ -30,7 +37,7 @@ const responseSchema = new mongoose.Schema({
 
       reviewerRole: {
         type: String,
-        enum: ["admin","member"]
+        enum: ["admin", "member"]
       },
 
       scores: {
@@ -59,12 +66,22 @@ const responseSchema = new mongoose.Schema({
 
   decision: {
     type: String,
-    enum: ["pending","accepted","rejected","reviewLater"],
+    enum: ["pending", "accepted", "rejected", "reviewLater"],
     default: "pending"
   }
 
 
 }, { timestamps: true });
+
+responseSchema.index(
+  { userId: 1, priority: 1 },
+  { unique: true, partialFilterExpression: { priority: { $type: "number" } } }
+);
+
+responseSchema.index(
+  { userId: 1, formId: 1 },
+  { unique: true }
+);
 
 const responseModel =
   mongoose.models.response ||
