@@ -102,7 +102,8 @@ export const addMember = async (req, res) => {
     }
   );
     // Optional: Delete their form responses if necessary
-    await responseModel.deleteMany({ userId: user._id });
+    // possible bug
+    // await responseModel.deleteMany({ form: form._id });
 
     // Add them to the organization's member array
     await mongoose.connection
