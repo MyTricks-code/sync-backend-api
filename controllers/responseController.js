@@ -250,13 +250,14 @@ export const addReview = async (req, res) => {
         }
 
         const totalScore = scoreValues.reduce((a, b) => a + b, 0)
+        const reviewerAverage = totalScore / scoreValues.length
 
         response.review.push({
             reviewerId,
             reviewerName,
             reviewerRole,
             scores,
-            totalScore,
+            totalScore: reviewerAverage,
             comment
         })
 
