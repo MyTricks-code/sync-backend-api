@@ -11,7 +11,9 @@ const userSchema = new mongoose.Schema({
             return this.authProvider === "local";
         }
     },
-    callSign: { type: String },
+    regnNo: { type: Number },
+    hobbies : {type: String},
+    branch : {type: String},
     email: {
         type: String, required: function () {
             return this.authProvider === "local";
@@ -49,7 +51,7 @@ const userSchema = new mongoose.Schema({
 }, { timestamps: true })
 
 userSchema.index(
-    { callSign: 1 },
+    { regnNo: 1 }, 
     {
         unique: true,
         sparse: true   // allows multiple docs with null/undefined callSign

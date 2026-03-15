@@ -236,7 +236,10 @@ export const getUserInfo = async (req, res) => {
                 clubs: clubData,
                 year: user.year,
                 bio: user.bio,
-                callSign: user.callSign
+                regnNo: user.regnNo,
+                branch: user.branch,
+                hobbies: user.hobbies,
+                number: user.number
             }
         })
     } catch (err) {
@@ -348,9 +351,9 @@ export const updateUserInfo = async (req, res) => {
             });
         }
 
-        const { name, number, bio, callSign, year } = req.body;
+        const { name, number, bio, hobbies, year, regnNo, branch } = req.body;
 
-        if (!name || !number && !bio && !callSign && !year) {
+        if (!name && !number && !bio && !hobbies && !year && !regnNo && !branch) {
             return res.status(400).json({
                 success: false,
                 message: "No parameters provided"
@@ -366,13 +369,13 @@ export const updateUserInfo = async (req, res) => {
             });
         }
 
-        // Check callSign uniqueness before saving
-        if (callSign && callSign !== user.callSign) {
-            const taken = await userModel.findOne({ callSign, _id: { $ne: userId } });
+        // Check regnNo uniqueness before saving
+        if (regnNo && regnNo !== user.regnNo) {
+            const taken = await userModel.findOne({ regnNo, _id: { $ne: userId } });
             if (taken) {
                 return res.status(409).json({
                     success: false,
-                    message: `Call sign "${callSign}" is already taken. Please choose another.`
+                    message: `Registration number "${regnNo}" is already taken. Please choose another.`
                 });
             }
         }
@@ -380,8 +383,10 @@ export const updateUserInfo = async (req, res) => {
         if (name) user.name = name;
         if (number) user.number = number;
         if (bio) user.bio = bio;
-        if (callSign) user.callSign = callSign;
+        if (regnNo) user.regnNo = regnNo;
         if (year) user.year = year;
+        if (hobbies) user.hobbies = hobbies;
+        if (branch) user.branch = branch
 
         await user.save();
 
@@ -393,10 +398,10 @@ export const updateUserInfo = async (req, res) => {
     } catch (err) {
         console.error("Update error:", err);
         // Fallback: MongoDB duplicate key error
-        if (err.code === 11000 && err.keyPattern?.callSign) {
+        if (err.code === 11000 && err.keyPattern?.regnNo) {
             return res.status(409).json({
                 success: false,
-                message: "That call sign is already taken. Please choose another."
+                message: "That registration number is already taken. Please choose another."
             });
         }
         return res.status(500).json({
