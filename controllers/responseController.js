@@ -4,6 +4,8 @@ import mongoose from "mongoose";
 import userModel from "../models/userModel.js";
 import cloudinary from "../config/cloudinary.js";
 
+
+// this is code to view the pdf of reponses................
 const CLOUDINARY_HOST_REGEX = /(^|\.)res\.cloudinary\.com$/i;
 
 const parseCloudinaryUrl = (urlValue) => {
@@ -127,6 +129,9 @@ const getPossibleCloudinaryUrls = (assetInfo) => {
 
     return Array.from(urls);
 };
+
+// .........................................../
+
 
 const isOrgAdmin = (org, userId, email) => {
     if (!org?.admins?.length) {
@@ -255,7 +260,7 @@ export const getFormResponses = async (req, res) => {
     const { formId } = req.params
     const userId = req.userId
     const body = req.body || {}
-    const { email } = body
+    const { club, email } = body
 
     if (!formId) {
         return res.json({ success: false, message: "Missing formId" })
