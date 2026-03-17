@@ -41,6 +41,10 @@ const userSchema = new mongoose.Schema({
     },
     bio: { type: String, default: "Rookie Here. Guide me please hui hui" },
     number: { type: Number, unique: true },
+
+    avatar:{ type:String },
+    resume:{ type:String },
+    
     googleId: {
         type: String,
     },

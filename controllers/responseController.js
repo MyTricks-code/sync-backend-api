@@ -2,6 +2,131 @@ import responseModel from "../models/responseModel.js";
 import formModel from "../models/formsModel.js";
 import mongoose from "mongoose";
 import userModel from "../models/userModel.js";
+import cloudinary from "../config/cloudinary.js";
+
+const CLOUDINARY_HOST_REGEX = /(^|\.)res\.cloudinary\.com$/i;
+
+const parseCloudinaryUrl = (urlValue) => {
+    try {
+        const parsed = new URL(urlValue);
+
+        if (!CLOUDINARY_HOST_REGEX.test(parsed.hostname)) {
+            return null;
+        }
+
+        const segments = parsed.pathname.split('/').filter(Boolean);
+        const uploadIndex = segments.findIndex((segment) => segment === 'upload');
+
+        if (uploadIndex <= 0 || uploadIndex >= segments.length - 1) {
+            return null;
+        }
+
+        let startIndex = uploadIndex + 2;
+        if (/^v\d+$/i.test(segments[startIndex] || '')) {
+            startIndex += 1;
+        }
+
+        const publicPath = segments.slice(startIndex).join('/');
+        if (!publicPath) {
+            return null;
+        }
+
+        const lastDot = publicPath.lastIndexOf('.');
+        const extension = lastDot > -1 ? publicPath.slice(lastDot + 1).toLowerCase() : '';
+        const publicId = lastDot > -1 ? publicPath.slice(0, lastDot) : publicPath;
+
+        return {
+            inputUrl: urlValue,
+            publicId,
+            extension,
+        };
+    } catch {
+        return null;
+    }
+};
+
+const canOpenUrl = async (urlValue) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+
+    try {
+        const response = await fetch(urlValue, {
+            method: 'GET',
+            redirect: 'follow',
+            signal: controller.signal,
+            headers: { Range: 'bytes=0-0' },
+        });
+
+        return response.ok;
+    } catch {
+        return false;
+    } finally {
+        clearTimeout(timeout);
+    }
+};
+
+const getPossibleCloudinaryUrls = (assetInfo) => {
+    const urls = new Set();
+
+    if (!assetInfo?.inputUrl) {
+        return [];
+    }
+
+    urls.add(assetInfo.inputUrl);
+
+    if (assetInfo.extension === 'pdf') {
+        if (/\/image\/upload\//i.test(assetInfo.inputUrl)) {
+            urls.add(assetInfo.inputUrl.replace('/image/upload/', '/raw/upload/'));
+        }
+
+        if (/\/raw\/upload\//i.test(assetInfo.inputUrl)) {
+            urls.add(assetInfo.inputUrl.replace('/raw/upload/', '/image/upload/'));
+        }
+    }
+
+    const resourceTypes = ['raw', 'image'];
+    const deliveryTypes = ['upload', 'authenticated'];
+
+    resourceTypes.forEach((resourceType) => {
+        deliveryTypes.forEach((deliveryType) => {
+            try {
+                const signed = deliveryType !== 'upload';
+                const generatedUrl = cloudinary.url(assetInfo.publicId, {
+                    resource_type: resourceType,
+                    type: deliveryType,
+                    secure: true,
+                    sign_url: signed,
+                    format: assetInfo.extension || undefined,
+                });
+
+                if (generatedUrl) {
+                    urls.add(generatedUrl);
+                }
+            } catch {}
+        });
+    });
+
+    if (assetInfo.extension) {
+        ['raw', 'image'].forEach((resourceType) => {
+            try {
+                const downloadUrl = cloudinary.utils.private_download_url(
+                    assetInfo.publicId,
+                    assetInfo.extension,
+                    {
+                        resource_type: resourceType,
+                        type: 'upload',
+                    }
+                );
+
+                if (downloadUrl) {
+                    urls.add(downloadUrl);
+                }
+            } catch {}
+        });
+    }
+
+    return Array.from(urls);
+};
 
 const isOrgAdmin = (org, userId, email) => {
     if (!org?.admins?.length) {
@@ -40,10 +165,31 @@ export const submitResponse = async (req, res) => {
         return res.json({ success: false, message: "Empty Request body" })
     }
 
-    const { formId, answers, priority } = req.body
+    const { formId, priority } = req.body
+    const files = req.files
     const userId = req.userId
 
-    if (!formId || !answers || !userId) {
+    let answers = req.body?.answers
+
+    if (typeof answers === 'string') {
+        try {
+            answers = JSON.parse(answers)
+        } catch {
+            answers = {}
+        }
+    }
+
+    if (!answers || typeof answers !== 'object' || Array.isArray(answers)) {
+        answers = {}
+        Object.entries(req.body || {}).forEach(([key, value]) => {
+            if (key.startsWith('answers[') && key.endsWith(']')) {
+                const answerKey = key.slice(8, -1)
+                answers[answerKey] = value
+            }
+        })
+    }
+
+    if (!formId || !userId) {
         return res.json({ success: false, message: "Missing Credentials" })
     }
 
@@ -55,7 +201,24 @@ export const submitResponse = async (req, res) => {
             return res.json({ success: false, message: "Form not found" })
         }
 
-        const response = await responseModel.create({
+        if (files && files.length) {
+            files.forEach((file, index) => {
+                const fileUrl = file?.path || file?.secure_url || file?.url || ''
+                const mimeType = file?.mimetype || ''
+                const fileFormat = String(file?.format || '').toLowerCase()
+                const isPDF = mimeType === "application/pdf" || fileFormat === 'pdf'
+                const fileName = file?.originalname || file?.original_filename || file?.filename || `file_${index}`
+
+                answers[`file_${index}`] = {
+                     url: fileUrl,
+                     type: isPDF ? "pdf" : "image",
+                     name: fileName
+                }
+            })
+        }
+
+
+        await responseModel.create({
             formId: formId,
             userId: userId,
             answers: answers,
@@ -92,7 +255,7 @@ export const getFormResponses = async (req, res) => {
     const { formId } = req.params
     const userId = req.userId
     const body = req.body || {}
-    const { club, email } = body
+    const { email } = body
 
     if (!formId) {
         return res.json({ success: false, message: "Missing formId" })
@@ -324,4 +487,34 @@ export const updateDecision = async (req, res) => {
             err: err.message
         })
     }
+}
+
+export const openUploadUrl = async (req, res) => {
+    const rawUrl = String(req.query?.url || '').trim();
+
+    if (!rawUrl) {
+        return res.status(400).json({ 
+            success: false, message: 'Missing upload URL' 
+        });
+    }
+
+    const assetInfo = parseCloudinaryUrl(rawUrl);
+    if (!assetInfo) {
+        return res.status(400).json({ 
+            success: false, message: 'Invalid upload URL' 
+        });
+    }
+
+    const candidates = getPossibleCloudinaryUrls(assetInfo);
+
+    for (const candidate of candidates) {
+        const reachable = await canOpenUrl(candidate);
+        if (reachable) {
+            return res.redirect(candidate);
+        }
+    }
+
+    return res.status(404).json({ 
+        success: false, message: 'Uploaded file could not be resolved' 
+    });
 }

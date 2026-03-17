@@ -218,7 +218,7 @@ export const getUserInfo = async (req, res) => {
         if (!userId) return res.json({ success: false, message: "Forbidden" })
 
         const user = await userModel.findById(userId);
-        
+
         // Manually fetch club details since 'organization' is not a registered mongoose model
         let clubData = [];
         if (user.clubs && user.clubs.length > 0) {
@@ -386,7 +386,11 @@ export const updateUserInfo = async (req, res) => {
         if (regnNo) user.regnNo = regnNo;
         if (year) user.year = year;
         if (hobbies) user.hobbies = hobbies;
-        if (branch) user.branch = branch
+        if (branch) user.branch = branch;
+
+        if (req.file) {
+            user.avatar = req.file.path;
+        }
 
         await user.save();
 
@@ -419,42 +423,42 @@ export const checkMember = async (req, res) => {
   const userId = req.userId;
   const { clubId } = req.body;
 
-  if (!clubId || !userId) {
-    return res.json({ success: false, message: "Missing Credentials" });
-  }
-
-  try {
-    const org = await mongoose.connection
-      .collection("organization")
-      .findOne({ _id: new mongoose.Types.ObjectId(clubId) });
-
-    if (!org) {
-      return res.json({ success: false, message: "Org Not Found" });
+    if (!clubId || !userId) {
+        return res.json({ success: false, message: "Missing Credentials" });
     }
 
-    const isMember = org.members.some(
-      (memberId) => memberId.toString() === userId.toString()
-    );
+    try {
+        const org = await mongoose.connection
+            .collection("organization")
+            .findOne({ _id: new mongoose.Types.ObjectId(clubId) });
 
-    if (!isMember) {
-      return res.json({
-        success: false,
-        message: "User is not a member of this organisation",
-      });
+        if (!org) {
+            return res.json({ success: false, message: "Org Not Found" });
+        }
+
+        const isMember = org.members.some(
+            (memberId) => memberId.toString() === userId.toString()
+        );
+
+        if (!isMember) {
+            return res.json({
+                success: false,
+                message: "User is not a member of this organisation",
+            });
+        }
+
+        return res.json({
+            success: true,
+            message: "Membership verified"
+        });
+
+    } catch (err) {
+        return res.json({
+            success: false,
+            message: "Error checking member",
+            err: err.message
+        });
     }
-
-    return res.json({
-      success: true,
-      message: "Membership verified"
-    });
-
-  } catch (err) {
-    return res.json({
-      success: false,
-      message: "Error checking member",
-      err: err.message
-    });
-  }
 };
 
 /** This is a function to be used for microsoft login- Cant be used because of card issues with Azure 
