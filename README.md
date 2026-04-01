@@ -21,7 +21,7 @@
 
 | Service | URL |
 |---------|-----|
-| 🖥️ Frontend (NEXUS) | [syncaitpune.vercel.app](https://syncaitpune.vercel.app) |
+| 🖥️ Frontend (NEXUS) | [syncaitpune.vercel.app](https://sync-ait.vercel.app/) |
 | ⚙️ Backend API Root | `/` → `SYNC AIT BACKEND API` |
 
 ---
