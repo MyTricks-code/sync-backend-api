@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const postSchema = new mongoose.Schema(
   {
     instagramId: { type: String, required: true, unique: true },
-    postUrl:     String,
+    postUrl:     {type : String, unique:true},
     clubHandle:  { type: String, index: true },
     caption:     String,
     imageUrl:    String,
