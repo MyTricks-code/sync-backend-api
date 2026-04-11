@@ -3,6 +3,7 @@ import formModel from "../models/formsModel.js";
 import mongoose from "mongoose";
 import userModel from "../models/userModel.js";
 
+
 const isOrgAdmin = (org, userId, email) => {
     if (!org?.admins?.length) {
         return false;
@@ -40,10 +41,38 @@ export const submitResponse = async (req, res) => {
         return res.json({ success: false, message: "Empty Request body" })
     }
 
-    const { formId, answers, priority } = req.body
+    const { formId, priority } = req.body
+    const files = req.files
+    const rawFileFieldKeys = req.body?.fileFieldKeys
     const userId = req.userId
 
-    if (!formId || !answers || !userId) {
+    const fileFieldKeys = Array.isArray(rawFileFieldKeys)
+        ? rawFileFieldKeys
+        : rawFileFieldKeys
+            ? [rawFileFieldKeys]
+            : []
+
+    let answers = req.body?.answers
+
+    if (typeof answers === 'string') {
+        try {
+            answers = JSON.parse(answers)
+        } catch {
+            answers = {}
+        }
+    }
+
+    if (!answers || typeof answers !== 'object' || Array.isArray(answers)) {
+        answers = {}
+        Object.entries(req.body || {}).forEach(([key, value]) => {
+            if (key.startsWith('answers[') && key.endsWith(']')) {
+                const answerKey = key.slice(8, -1)
+                answers[answerKey] = value
+            }
+        })
+    }
+
+    if (!formId || !userId) {
         return res.json({ success: false, message: "Missing Credentials" })
     }
 
@@ -55,7 +84,32 @@ export const submitResponse = async (req, res) => {
             return res.json({ success: false, message: "Form not found" })
         }
 
-        const response = await responseModel.create({
+        if (files && files.length) {
+            files.forEach((file, index) => {
+                const fileUrl = file?.path || file?.secure_url || file?.url || ''
+                const fileName = file?.originalname || file?.original_filename || file?.filename || `file_${index}`
+
+                const preferredKey = String(fileFieldKeys[index] || '').trim() || `file_${index}`
+                let answerKey = preferredKey
+
+                if (answers[answerKey] !== undefined) {
+                    let suffix = 1
+                    while (answers[`${preferredKey}_${suffix}`] !== undefined) {
+                        suffix += 1
+                    }
+                    answerKey = `${preferredKey}_${suffix}`
+                }
+
+                answers[answerKey] = {
+                     url: fileUrl,
+                     type: "image",
+                     name: fileName
+                }
+            })
+        }
+
+
+        await responseModel.create({
             formId: formId,
             userId: userId,
             answers: answers,
@@ -325,3 +379,4 @@ export const updateDecision = async (req, res) => {
         })
     }
 }
+

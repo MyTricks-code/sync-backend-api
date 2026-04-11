@@ -32,7 +32,7 @@ const formSchema = new mongoose.Schema({
       type: {
         type: String,
         required: true,
-        enum: ["text", "email", "number", "textarea", "select","priority"]
+        enum: ["text", "email", "number", "textarea", "select","priority","file"]
       },
 
       input : {
