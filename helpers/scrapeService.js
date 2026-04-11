@@ -28,7 +28,7 @@ export async function scrapeClubPosts(sinceDate = null) {
 
   const input = {
     username: CLUB_HANDLES,         // Apify accepts an array of handles
-    resultsLimit: 30,               // max posts per handle per run
+    resultsLimit: 5,               // max posts per handle per run
     // onlyPostsNewerThan: cutoff.toISOString().split("T")[0], // "YYYY-MM-DD"
     // expandOwners: false,            // skip extra profile lookups → cheaper
     // expandChildren: false,          // skip carousel children → cheaper
