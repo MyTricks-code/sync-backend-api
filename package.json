@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/MyTricks-code/sync-backend-api#readme",
   "dependencies": {
+    "apify-client": "^2.22.3",
     "bcrypt": "^6.0.0",
     "connect-mongo": "^3.2.0",
     "cookie-parser": "^1.4.7",
@@ -31,6 +32,7 @@
     "jsonwebtoken": "^9.0.3",
     "jwks-rsa": "^3.2.2",
     "mongoose": "^9.1.6",
+    "node-cron": "^4.2.1",
     "nodemailer": "^8.0.0",
     "nodemon": "^3.1.11",
     "resend": "^6.9.2"

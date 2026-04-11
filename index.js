@@ -9,7 +9,8 @@ import cors from 'cors'
 import formRouter from './routes/formRoutes.js';
 import responseRouter from './routes/responseRoutes.js';
 import adminRouter from './routes/adminRoutes.js';
-
+// import eventsRouter from "./routes/eventRoutes.js";
+import postRouter from './routes/postRoutes.js';
 
 const PORT = process.env.PORT || 8000
 const app = express()
@@ -46,7 +47,9 @@ app.use("/api/task", taskRouter)
 app.use('/api/forms', formRouter)
 app.use('/api/response', responseRouter)
 app.use('/api/admin', adminRouter);
+app.use("/api/post", postRouter);
 
+  
 app.listen(PORT, () => {
   console.log("Server Started: ", PORT)
 })
