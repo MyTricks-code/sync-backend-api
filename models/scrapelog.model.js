@@ -32,6 +32,9 @@ const scrapeLogSchema = new mongoose.Schema(
   }
 );
 
+// Auto-delete scrape logs older than 1 week (TTL index on createdAt)
+scrapeLogSchema.index({ createdAt: 1 }, { expireAfterSeconds: 60 * 60 * 24 * 7 });
+
 // Check if the model already exists to prevent errors during hot-reloads
 const ScrapeLog = mongoose.models.ScrapeLog || mongoose.model("ScrapeLog", scrapeLogSchema);
 

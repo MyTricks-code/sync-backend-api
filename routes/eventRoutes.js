@@ -1,4 +1,7 @@
 import express from 'express'
+import Event from '../models/eventModel.js';
+import { runScrapeJob } from '../jobs/scrape.job.js';
+
 const router = express.Router();
 
 // GET /api/events
@@ -49,10 +52,12 @@ router.get("/:id", async (req, res) => {
   res.json({ event });
 });
 
-// POST /api/scrape/trigger  — manual trigger (admin only, add auth middleware in production)
+// POST /api/events/scrape/trigger — forced manual trigger (bypasses weekly guard)
+// Scrapes all posts from the last 15 days regardless of last run time
 router.post("/scrape/trigger", async (req, res) => {
-  res.json({ message: "Scrape job started in background" }); // respond immediately
-  runScrapeJob();                                              // run async, don't await
+  const since15Days = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000);
+  res.json({ message: "Forced scrape started — fetching posts from the last 15 days" });
+  runScrapeJob({ force: true, sinceDate: since15Days }); // fire-and-forget
 });
 
-export default router;
+export default router;

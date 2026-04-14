@@ -9,6 +9,7 @@ const client = new ApifyClient({ token: process.env.APIFY_API_TOKEN });
 // All AIT Pune club Instagram handles — add/remove freely
 const CLUB_HANDLES = [
   "gdsc_aitpune",
+  "culturalboard_ait"
   // "ddqclub",
   // "ossclub.ait",
   // add more handles here
@@ -23,15 +24,16 @@ const CLUB_HANDLES = [
  */
 export async function scrapeClubPosts(sinceDate = null) {
   const cutoff = sinceDate ?? new Date(Date.now() - 8 * 60 * 60 * 1000); // default: last 8 hrs
+  const cutoffDate = cutoff.toISOString().split("T")[0]; // "YYYY-MM-DD"
 
-  console.log(`[Apify] Starting scrape for ${CLUB_HANDLES.length} handles since ${cutoff.toISOString()}`);
+  console.log(`[Apify] Starting scrape for ${CLUB_HANDLES.length} handles since ${cutoffDate}`);
 
   const input = {
-    username: CLUB_HANDLES,         // Apify accepts an array of handles
-    resultsLimit: 5,               // max posts per handle per run
-    // onlyPostsNewerThan: cutoff.toISOString().split("T")[0], // "YYYY-MM-DD"
-    // expandOwners: false,            // skip extra profile lookups → cheaper
-    // expandChildren: false,          // skip carousel children → cheaper
+    username: CLUB_HANDLES,
+    resultsLimit: 20,                      // enough posts to cover 15 days per handle
+    onlyPostsNewerThan: cutoffDate,        // Apify will skip older posts → cheaper
+    // expandOwners: false,
+    // expandChildren: false,
   };
 
   // .call() starts the Actor and waits for it to finish (synchronous run)
