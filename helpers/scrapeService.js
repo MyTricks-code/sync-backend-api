@@ -9,9 +9,9 @@ const client = new ApifyClient({ token: process.env.APIFY_API_TOKEN });
 // All AIT Pune club Instagram handles — add/remove freely
 const CLUB_HANDLES = [
   "gdsc_aitpune",
-  "culturalboard_ait"
-  // "ddqclub",
-  // "ossclub.ait",
+  "culturalboard_ait",
+  "ddqclub",
+  "ossclub.ait"
   // add more handles here
 ];
 

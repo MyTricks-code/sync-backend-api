@@ -76,21 +76,28 @@ export async function runScrapeJob({ force = false, sinceDate = null } = {}) {
 
     // ── 4. Save each announcement as an Event (dedup by instagramId) ──────────
     for (const ann of announcements) {
-      const exists = await Event.findOne({ instagramId: ann.instagramId });
-      if (exists) {
-        skippedEvents++;
-        continue;
-      }
+      const result = await Event.updateOne(
+        { instagramId: ann.instagramId }, // unique check
+        {
+          $set: {
+            instagramId: ann.instagramId,
+            postUrl: ann.postUrl ?? null,
+            eventName: ann.eventName ?? null,
+            date: ann.date ?? null,
+            time: ann.time ?? null,
+            venue: ann.venue ?? null,
+            club: ann.club ?? null,
+            description: postsToClassify.find(p => p.instagramId === ann.instagramId)?.caption ?? null,
+          },
+        },
+        { upsert: true }
+      );
 
-      await Event.create({
-        instagramId: ann.instagramId,
-        postUrl:     ann.postUrl   ?? null,
-        eventName:   ann.eventName ?? null,
-        date:        ann.date      ?? null,
-        time:        ann.time      ?? null,
-        venue:       ann.venue     ?? null,
-      });
-      savedEvents++;
+      if (result.upsertedCount > 0) {
+        savedEvents++;
+      } else {
+        skippedEvents++;
+      }
     }
   }
 

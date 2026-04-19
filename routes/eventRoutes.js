@@ -1,5 +1,14 @@
-// i will write in next commit --😁😁😁
+import express from "express"
+import { getAllEvents, getEventById } from "../controllers/eventController.js"
+import { runScrapeJob } from "../jobs/scrape.job.js"
 
+const router = express.Router()
+
+
+router.get("/all", getAllEvents)
+
+
+router.get("/:id", getEventById)
 
 
 // Scrapes all posts from the last 15 days regardless of last run time
