@@ -7,8 +7,11 @@ import ScrapeLog from "../models/scrapelog.model.js";
 const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 export async function runScrapeJob({ force = false, sinceDate = null } = {}) {
+  // 🚨 HARDCODE OVERRIDE: Ignore whatever date the router sends and force July 1, 2025
+  const actualSinceDate = new Date('2025-07-01T00:00:00Z');
+
   const jobStart = Date.now();
-  console.log(`[Job] Starting scrape... (force=${force})`);
+  console.log(`[Job] Starting scrape... (force=${force}, sinceDate=${actualSinceDate.toISOString()})`);
 
   // ── 0. Guard: skip if a successful scrape ran within the last week ──────────
   if (!force) {
@@ -25,11 +28,12 @@ export async function runScrapeJob({ force = false, sinceDate = null } = {}) {
       }
     }
   } else {
-    console.log("[Job] Guard bypassed — forced run.");
+    console.log("[Job] Guard bypassed — forced run. Executing historical backfill.");
   }
 
   // ── 1. Fetch raw posts from Apify and normalise them ───────────────────────
-  const rawPosts = await scrapeClubPosts(sinceDate);
+  // Pass the hardcoded date here to ensure we fetch back to July 2025
+  const rawPosts = await scrapeClubPosts(actualSinceDate);
   const posts = rawPosts
     .map(normalisePost)
     .filter((p) => p.caption.length > 10); // skip empty / very short captions

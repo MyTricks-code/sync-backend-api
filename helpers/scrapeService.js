@@ -8,11 +8,34 @@ const client = new ApifyClient({ token: process.env.APIFY_API_TOKEN });
 
 // All AIT Pune club Instagram handles — add/remove freely
 const CLUB_HANDLES = [
-  "gdsc_aitpune",
+  "ait_feet_tappers",
+  "aitpune_official",
+  "ait_2029",
+  "ait_volleyball",
+  "aitsportsclub",
   "culturalboard_ait",
-  "ddqclub",
-  "ossclub.ait"
-  // add more handles here
+  "ait._.basketball",
+  "ait_pr_cell",
+  "gdsc_aitpune",
+  "ait.football",
+  "aittechnicalboard",
+  "robotics.club_ait",
+  "ait_cycling_club",
+  "ecell_ait",
+  "ait_nature_club",
+  "ait.athletes",
+  "aitvolleyball_",
+  "ait_cricket_team",
+  "ait_badminton",
+  "ait_meme_news",
+  "ait_nss_rotaract_club",
+  "filmclub_ait",
+  "ait_nssclub",
+  "aitkabaddi",
+  "isdf_ait",
+  "ait_uncensored",
+  "minerva_ait",
+  "ossclub.ait",
 ];
 
 /**
