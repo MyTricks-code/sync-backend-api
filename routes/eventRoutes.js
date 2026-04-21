@@ -5,8 +5,6 @@ import { runScrapeJob } from "../jobs/scrape.job.js";
 
 const router = express.Router();
 
-// --- API ROUTES ---
-
 router.get("/all", getAllEvents);
 
 router.get("/:id", getEventById);
@@ -39,13 +37,13 @@ cron.schedule("0 */6 * * *", async () => {
 
 // // Temporarily run EVERY MINUTE for testing
 // cron.schedule("* * * * *", async () => {
-//   console.log("🕒 Cron Job Triggered: Testing 1-minute interval...");
+//   console.log(" Cron Job Triggered: Testing 1-minute interval...");
 //   try {
 //     const since15Days = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000);
 //     await runScrapeJob({ force: true, sinceDate: since15Days }); 
-//     console.log("✅ Scheduled scrape job completed successfully.");
+//     console.log(" Scheduled scrape job completed successfully.");
 //   } catch (error) {
-//     console.error("❌ Error during scheduled scrape job:", error);
+//     console.error(" Error during scheduled scrape job:", error);
 //   }
 // });
 export default router;
