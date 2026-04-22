@@ -1,13 +1,11 @@
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_TOKEN });
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }); // ✅ Fixed: was GEMINI_API_TOKEN
 
-// Model fallback chain — tried in order when a model is overloaded (503) or unavailable
 const MODEL_CHAIN = [
-  "gemini-3.1-pro-preview",   // best model you have access to
-  "gemini-2.5-pro",           // excellent fallback
-  "gemini-2.5-flash",         // generous free quota
-  "gemini-2.0-flash",         // last resort, most lenient rate limits
+  "gemini-2.5-flash",       // primary: best quality
+  "gemini-2.5-flash-lite",  // fallback 1: faster, lighter
+  "gemini-2.0-flash-lite",  // fallback 2: older but different quota pool           
 ];
 
 // ─── Tuning knobs ───────────────────────────────────────────────

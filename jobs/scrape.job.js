@@ -3,17 +3,18 @@ import { classifyPostBatch } from "../helpers/classifyService.js";
 import Post from "../models/post.model.js";
 import Event from "../models/eventModel.js";
 import ScrapeLog from "../models/scrapelog.model.js";
+import User from "../models/userModel.js";
+import sendEmail from "../helpers/sendEmail.js";
+import { generateEventEmail } from "../helpers/Generateeventemail.js"; // 👈 NEW
 
 const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 export async function runScrapeJob({ force = false, sinceDate = null } = {}) {
-  // 🚨 HARDCODE OVERRIDE: Ignore whatever date the router sends and force July 1, 2025
-  const actualSinceDate = new Date('2025-07-01T00:00:00Z');
+  const actualSinceDate = sinceDate || new Date(Date.now() - 15 * 24 * 60 * 60 * 1000);
 
   const jobStart = Date.now();
   console.log(`[Job] Starting scrape... (force=${force}, sinceDate=${actualSinceDate.toISOString()})`);
 
-  // ── 0. Guard: skip if a successful scrape ran within the last week ──────────
   if (!force) {
     const lastLog = await ScrapeLog.findOne().sort({ createdAt: -1 }).lean();
     if (lastLog) {
@@ -28,21 +29,20 @@ export async function runScrapeJob({ force = false, sinceDate = null } = {}) {
       }
     }
   } else {
-    console.log("[Job] Guard bypassed — forced run. Executing historical backfill.");
+    console.log("[Job] Guard bypassed — forced run. Executing scrape.");
   }
 
-  // ── 1. Fetch raw posts from Apify and normalise them ───────────────────────
-  // Pass the hardcoded date here to ensure we fetch back to July 2025
+  // ── 2. Scrape & normalise posts ───────────────────────────────────────────
   const rawPosts = await scrapeClubPosts(actualSinceDate);
   const posts = rawPosts
     .map(normalisePost)
-    .filter((p) => p.caption.length > 10); // skip empty / very short captions
+    .filter((p) => p.caption.length > 10);
 
   console.log(`[Job] ${posts.length} posts after normalisation`);
 
-  // ── 2. Persist all posts to the Post collection (dedup by instagramId) ─────
+  // ── 3. Save new posts ─────────────────────────────────────────────────────
   let savedPosts = 0;
-  const newPosts = []; // posts that didn't exist in DB yet
+  const newPosts = [];
 
   for (const post of posts) {
     const exists = await Post.findOne({ instagramId: post.instagramId });
@@ -53,15 +53,13 @@ export async function runScrapeJob({ force = false, sinceDate = null } = {}) {
   }
   console.log(`[Job] ${savedPosts} new posts saved (${posts.length - savedPosts} already existed)`);
 
-  // ── 3. Determine which posts need Gemini classification ────────────────────
-  //   Normal run : only new posts (saves API cost)
-  //   Forced run : all scraped posts that don't have an Event yet
+  // ── 4. Classify posts via Gemini ──────────────────────────────────────────
   let savedEvents = 0;
   let skippedEvents = 0;
+  const newlyCreatedEvents = [];
 
   let postsToClassify = [];
   if (force) {
-    // Check each scraped post — classify it if no Event record exists yet
     for (const post of posts) {
       const hasEvent = await Event.findOne({ instagramId: post.instagramId }).lean();
       if (!hasEvent) postsToClassify.push(post);
@@ -78,20 +76,21 @@ export async function runScrapeJob({ force = false, sinceDate = null } = {}) {
     const announcements = await classifyPostBatch(postsToClassify);
     console.log(`[Job] Gemini found ${announcements.length} event announcement(s)`);
 
-    // ── 4. Save each announcement as an Event (dedup by instagramId) ──────────
     for (const ann of announcements) {
+      const description = postsToClassify.find(p => p.instagramId === ann.instagramId)?.caption ?? null;
+
       const result = await Event.updateOne(
-        { instagramId: ann.instagramId }, // unique check
+        { instagramId: ann.instagramId },
         {
           $set: {
             instagramId: ann.instagramId,
-            postUrl: ann.postUrl ?? null,
-            eventName: ann.eventName ?? null,
-            date: ann.date ?? null,
-            time: ann.time ?? null,
-            venue: ann.venue ?? null,
-            club: ann.club ?? null,
-            description: postsToClassify.find(p => p.instagramId === ann.instagramId)?.caption ?? null,
+            postUrl:     ann.postUrl     ?? null,
+            eventName:   ann.eventName   ?? null,
+            date:        ann.date        ?? null,
+            time:        ann.time        ?? null,
+            venue:       ann.venue       ?? null,
+            club:        ann.club        ?? null,
+            description,
           },
         },
         { upsert: true }
@@ -99,13 +98,51 @@ export async function runScrapeJob({ force = false, sinceDate = null } = {}) {
 
       if (result.upsertedCount > 0) {
         savedEvents++;
+        // Attach description so the email generator has the full picture
+        newlyCreatedEvents.push({ ...ann, description });
       } else {
         skippedEvents++;
       }
     }
   }
 
-  // ── 5. Write scrape log (TTL will auto-delete it after 1 week) ─────────────
+  // ── 5. Send one individual email per new event to every user ──────────────
+  if (newlyCreatedEvents.length > 0) {
+    console.log(`[Job] 📧 Preparing ${newlyCreatedEvents.length} individual event email(s)...`);
+
+    try {
+      const users = await User.find({}).select("email").lean();
+      const emailList = users.map(u => u.email).filter(Boolean);
+
+      if (emailList.length === 0) {
+        console.log(`[Job] ⚠️ No users found in database to email.`);
+      } else {
+        // For each new event, generate a Gemini-crafted email and blast it to all users
+        for (const ev of newlyCreatedEvents) {
+          console.log(`[Job] 🤖 Generating Gemini email for: "${ev.eventName}"...`);
+
+          const { subject, html, text } = await generateEventEmail(ev);
+
+          console.log(`[Job] 📤 Sending "${subject}" to ${emailList.length} user(s)...`);
+
+          const emailPromises = emailList.map(email =>
+            sendEmail(email, subject, text, html) // 👈 passes html separately
+          );
+
+          const results = await Promise.allSettled(emailPromises);
+
+          const successCount = results.filter(r => r.status === "fulfilled" && r.value === true).length;
+          const failCount    = results.length - successCount;
+
+          console.log(`[Job] ✅ Event "${ev.eventName}" — ${successCount} sent, ${failCount} failed.`);
+        }
+      }
+    } catch (error) {
+      console.error(`[Job] ❌ Error in email dispatch:`, error);
+    }
+  }
+
+  // ── 6. Write scrape log ───────────────────────────────────────────────────
   const durationMs = Date.now() - jobStart;
   await ScrapeLog.create({
     postsScraped:  posts.length,

@@ -53,7 +53,7 @@ export async function scrapeClubPosts(sinceDate = null) {
 
   const input = {
     username: CLUB_HANDLES,
-    resultsLimit: 20,                      // enough posts to cover 15 days per handle
+    resultsLimit: 50,                      // enough posts to cover 15 days per handle
     onlyPostsNewerThan: cutoffDate,        // Apify will skip older posts → cheaper
     // expandOwners: false,
     // expandChildren: false,
