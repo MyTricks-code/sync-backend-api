@@ -222,7 +222,7 @@ export const getUserResponses = async (req, res) => {
 
 export const deleteResponse = async (req, res) => {
 
-    const { responseId } = req.body
+    const { responseId } = req.params
     const userId = req.userId
 
     if (!responseId || !userId) {
@@ -257,6 +257,64 @@ export const deleteResponse = async (req, res) => {
             message: "Error deleting response",
             err
         })
+    }
+}
+
+export const updateResponse = async (req, res) => {
+
+    const { responseId } = req.params
+    const userId = req.userId
+    const files = req.files
+    const rawFileFieldKeys = req.body?.fileFieldKeys
+
+    const fileFieldKeys = Array.isArray(rawFileFieldKeys)
+        ? rawFileFieldKeys
+        : rawFileFieldKeys ? [rawFileFieldKeys] : []
+
+    let answers = req.body?.answers
+    if (typeof answers === 'string') {
+        try { answers = JSON.parse(answers) } catch { answers = {} }
+    }
+    if (!answers || typeof answers !== 'object' || Array.isArray(answers)) {
+        answers = {}
+    }
+
+    const { priority } = req.body
+
+    if (!responseId || !userId) {
+        return res.json({ success: false, message: "Missing credentials" })
+    }
+
+    try {
+        const response = await responseModel.findOne({ _id: responseId, userId: userId })
+
+        if (!response) {
+            return res.json({ success: false, message: "Response not found or unauthorized" })
+        }
+
+        if (files && files.length) {
+            files.forEach((file, index) => {
+                const fileUrl = file?.path || file?.secure_url || file?.url || ''
+                const fileName = file?.originalname || file?.original_filename || file?.filename || `file_${index}`
+                const preferredKey = String(fileFieldKeys[index] || '').trim() || `file_${index}`
+                answers[preferredKey] = { url: fileUrl, type: "image", name: fileName }
+            })
+        }
+
+        response.answers = answers
+        if (priority !== undefined) {
+            response.priority = priority ? Number(priority) : null
+        }
+
+        await response.save()
+
+        return res.json({ success: true, message: "Response updated successfully" })
+
+    } catch (err) {
+        if (err.code === 11000) {
+            return res.json({ success: false, message: "Priority already used by another response" })
+        }
+        return res.json({ success: false, message: "Error updating response", err: err.message })
     }
 }
 

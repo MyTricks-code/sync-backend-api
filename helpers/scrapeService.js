@@ -11,6 +11,7 @@ const CLUB_HANDLES = [
   "ait_feet_tappers",
   "aitpune_official",
   "ait_2029",
+  /*
   "ait_volleyball",
   "aitsportsclub",
   "culturalboard_ait",
@@ -36,6 +37,7 @@ const CLUB_HANDLES = [
   "ait_uncensored",
   "minerva_ait",
   "ossclub.ait",
+  */
 ];
 
 /**

@@ -6,6 +6,7 @@ import {
   getFormResponses,
   getUserResponses,
   deleteResponse,
+  updateResponse,
   addReview,
   updateDecision
 } from "../controllers/responseController.js";
@@ -33,6 +34,7 @@ responseRouter.post("/submit-response", userAuth, uploadResponseFiles, submitRes
 responseRouter.get("/get-form-responses/:formId", adminOrUserAuth, getFormResponses)
 responseRouter.get("/get-user-responses", userAuth, getUserResponses)
 responseRouter.delete("/delete-response/:responseId", userAuth, deleteResponse)
+responseRouter.put("/update-response/:responseId", userAuth, uploadResponseFiles, updateResponse)
 
 responseRouter.post("/add-review", adminOrUserAuth, addReview)
 responseRouter.post("/update-decision", adminAuth, updateDecision)
