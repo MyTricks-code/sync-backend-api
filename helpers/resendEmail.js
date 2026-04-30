@@ -4,16 +4,21 @@ const resend = new Resend(process.env.RESEND);
 
 const sendMail = async (recipient, subject, content) => {
     try {
-        await resend.emails.send({
+        const { data, error } = await resend.emails.send({
             from: 'onboarding@resend.dev',
             to: recipient,
-            subject: 'SYNC AIT: ' + subject,
+            subject: 'AIT NEXUS: ' + subject,
             html: `<p>${content}</p>`
         });
-        return true
+        
+        if (error) {
+            console.log("Resend API Error: ", error);
+            return { success: false, error: error.message };
+        }
+        return { success: true };
     } catch (err) {
         console.log("Error Sending Mail: " + err);
-        return false;
+        return { success: false, error: err.message };
     }
 }
 

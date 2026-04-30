@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken'
 import mongoose from 'mongoose';
 import responseModel from '../models/responseModel.js';
 import userModel from '../models/userModel.js';
+import sendMail from "../helpers/resendEmail.js";
 
 const connectOrg = async (club) => {
   const org = await mongoose.connection
@@ -18,9 +19,9 @@ export const adminLogin = async (req, res) => {
       return res.json({ success: false, message: "Body not provided" });
     }
 
-    const { email, password, club } = req.body;
+    const { email, club } = req.body;
 
-    if (!email || !password || !club) {
+    if (!email || !club) {
       return res.json({ success: false, message: "Missing fields" });
     }
 
@@ -31,12 +32,41 @@ export const adminLogin = async (req, res) => {
     }
 
     const admin = org.admins.find(
-      (a) => a.email === email && a.password === password
+      (a) => a.email === email
     );
 
     if (!admin) {
       return res.json({ success: false, message: "Invalid credentials" });
     }
+
+    // Generate OTP
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+
+
+    await mongoose.connection.collection("organization").updateOne(
+      { name: club, "admins.email": email },
+      {
+        $set: {
+          "admins.$.loginOtp": otp,
+          "admins.$.loginOtpExpireAt": Date.now() + 15 * 60 * 1000
+        }
+      }
+    );
+
+    // Send OTP
+    const mailResult = await sendMail(email, "Admin Login OTP", `Your OTP is ${otp}. It expires in 15 minutes.`);
+
+    if (mailResult && mailResult.success === false) {
+      return res.json({
+        success: false,
+        message: mailResult.error || "Failed to send OTP email"
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "OTP sent to email"
+    });
 
     const token = jwt.sign({ email: admin.email, club: club }, process.env.JWT_SECRET || 'replace-me', { expiresIn: '7d' })
     res.cookie('adminToken', token, {
@@ -56,6 +86,69 @@ export const adminLogin = async (req, res) => {
       success: false,
       message: err.message
     });
+  }
+};
+
+export const verifyAdminOtp = async (req, res) => {
+  try {
+    const { email, club, otp } = req.body;
+
+    if (!email || !club || !otp) {
+      return res.json({ success: false, message: "Missing fields" });
+    }
+
+    const org = await connectOrg(club);
+
+    if (!org) {
+      return res.json({ success: false, message: "Organization not found" });
+    }
+
+    const admin = org.admins.find((a) => a.email === email);
+
+    if (!admin) {
+      return res.json({ success: false, message: "Admin not found" });
+    }
+
+    if (admin.loginOtp !== otp) {
+      return res.json({ success: false, message: "Invalid OTP" });
+    }
+
+    if (admin.loginOtpExpireAt < Date.now()) {
+      return res.json({ success: false, message: "OTP expired" });
+    }
+
+    // CLEAR OTP
+    await mongoose.connection.collection("organization").updateOne(
+      { name: club, "admins.email": email },
+      {
+        $set: {
+          "admins.$.loginOtp": "",
+          "admins.$.loginOtpExpireAt": 0
+        }
+      }
+    );
+
+    // CREATE TOKEN (7 DAYS)
+    const token = jwt.sign(
+      { email: admin.email, club: club },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.cookie("adminToken", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+
+    return res.json({
+      success: true,
+      message: "Login successful"
+    });
+
+  } catch (err) {
+    return res.json({ success: false, message: err.message });
   }
 };
 
@@ -94,13 +187,13 @@ export const addMember = async (req, res) => {
     if (!user) {
       return res.json({ success: false, message: "User with this email not found" });
     }
-      await userModel.updateOne(
-    { _id: memberId },
-    {
-      $set: {role: "member" },
-      $addToSet: { clubs: org._id }
-    }
-  );
+    await userModel.updateOne(
+      { _id: memberId },
+      {
+        $set: { role: "member" },
+        $addToSet: { clubs: org._id }
+      }
+    );
     // Optional: Delete their form responses if necessary
     // possible bug
     // await responseModel.deleteMany({ form: form._id });
@@ -153,12 +246,12 @@ export const deleteMember = async (req, res) => {
     }
 
     await userModel.updateOne(
-    { _id: userIdToRemove },
-    {
-      $set: { role: "applicant" },
-      $pull: { clubs: org._id }
-    }
-  );
+      { _id: userIdToRemove },
+      {
+        $set: { role: "applicant" },
+        $pull: { clubs: org._id }
+      }
+    );
 
     return res.json({ success: true, message: "Successfully removed the member" });
 
@@ -193,6 +286,7 @@ export const getAdminInfo = async (req, res) => {
     }
 
     const admin = org.admins.find(a => a.email === email);
+
     if (!admin) {
       return res.json({ success: false, message: "Admin not found in organization" });
     }
