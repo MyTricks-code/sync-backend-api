@@ -10,6 +10,7 @@ const toObjectId = (value) => {
     return new mongoose.Types.ObjectId(value);
 };
 
+
 const isOrgAdmin = (org, userId, email) => {
     if (!org?.admins?.length) {
         return false;
@@ -78,6 +79,7 @@ const findAuthorizedOrganization = async ({ userId, club, email }) => {
     console.log('[findAuthorizedOrg] all paths exhausted, returning null');
     return null;
 };
+
 
 export const createForm = async (req, res)=>{
 

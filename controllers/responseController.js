@@ -2,7 +2,7 @@ import responseModel from "../models/responseModel.js";
 import formModel from "../models/formsModel.js";
 import mongoose from "mongoose";
 import userModel from "../models/userModel.js";
-
+import { encrypt, decrypt } from "../helpers/crypto.js";
 
 const isOrgAdmin = (org, userId, email) => {
     if (!org?.admins?.length) {
@@ -36,7 +36,6 @@ const getFormOrganization = async (formId) => {
 };
 
 export const submitResponse = async (req, res) => {
-
     if (!req.body) {
         return res.json({ success: false, message: "Empty Request body" })
     }
@@ -109,10 +108,12 @@ export const submitResponse = async (req, res) => {
         }
 
 
+        const encryptedAnswers = encrypt(JSON.stringify(answers))
+
         await responseModel.create({
             formId: formId,
             userId: userId,
-            answers: answers,
+            answers: encryptedAnswers,
             priority: priority || null
         })
 
@@ -137,9 +138,6 @@ export const submitResponse = async (req, res) => {
         })
     }
 }
-
-
-
 
 export const getFormResponses = async (req, res) => {
 
@@ -181,7 +179,32 @@ export const getFormResponses = async (req, res) => {
             return res.json({ success: false, message: "Unauthorized to view these responses" })
         }
 
-        const responses = await responseModel.find({ formId: formId }).sort({ averageScore: -1 }).populate({ path: 'userId', model: userModel, select: 'name email' }).lean()
+        const rawResponses = await responseModel.find({ formId: formId }).sort({ averageScore: -1 }).populate({ path: 'userId', model: userModel, select: 'name email' }).lean()
+
+        const responses = rawResponses.map((r) => {
+            try {
+                r.answers = JSON.parse(decrypt(r.answers))
+            } catch {
+                // answers may be unencrypted legacy data — leave as-is
+            }
+            if (Array.isArray(r.review)) {
+                r.review = r.review.map((rev) => {
+                    try {
+                        rev.scores = JSON.parse(decrypt(rev.scores))
+                    } catch {
+                        // legacy unencrypted scores — leave as-is
+                    }
+                    try {
+                        rev.comment = rev.comment ? decrypt(rev.comment) : rev.comment
+                    } catch {
+                        // legacy unencrypted comment — leave as-is
+                    }
+                    return rev
+                })
+            }
+            return r
+        })
+
         return res.json({
             success: true,
             responses
@@ -196,15 +219,37 @@ export const getFormResponses = async (req, res) => {
     }
 }
 
-
-
 export const getUserResponses = async (req, res) => {
 
     const userId = req.userId
 
     try {
 
-        const responses = await responseModel.find({ userId: userId }).lean()
+        const rawResponses = await responseModel.find({ userId: userId }).lean()
+
+        const responses = rawResponses.map((r) => {
+            try {
+                r.answers = JSON.parse(decrypt(r.answers))
+            } catch {
+                // answers may be unencrypted legacy data — leave as-is
+            }
+            if (Array.isArray(r.review)) {
+                r.review = r.review.map((rev) => {
+                    try {
+                        rev.scores = JSON.parse(decrypt(rev.scores))
+                    } catch {
+                        // legacy unencrypted scores — leave as-is
+                    }
+                    try {
+                        rev.comment = rev.comment ? decrypt(rev.comment) : rev.comment
+                    } catch {
+                        // legacy unencrypted comment — leave as-is
+                    }
+                    return rev
+                })
+            }
+            return r
+        })
 
         return res.json({
             success: true,
@@ -301,7 +346,7 @@ export const updateResponse = async (req, res) => {
             })
         }
 
-        response.answers = answers
+        response.answers = encrypt(JSON.stringify(answers))
         if (priority !== undefined) {
             response.priority = priority ? Number(priority) : null
         }
@@ -364,13 +409,16 @@ export const addReview = async (req, res) => {
         const totalScore = scoreValues.reduce((a, b) => a + b, 0)
         const reviewerAverage = totalScore / scoreValues.length
 
+        const encryptedScores = encrypt(JSON.stringify(scores))
+        const encryptedComment = comment ? encrypt(comment) : null
+
         response.review.push({
             reviewerId,
             reviewerName,
             reviewerRole,
-            scores,
+            scores: encryptedScores,
             totalScore: reviewerAverage,
-            comment
+            comment: encryptedComment
         })
 
         const avg =

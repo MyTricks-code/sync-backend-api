@@ -1,5 +1,17 @@
 import mongoose from "mongoose";
 
+// Ensures only properly encrypted envelopes { encrypted, iv, authTag } are stored.
+// Rejects any raw/plaintext data that bypasses the controller encryption layer.
+const isEncryptedEnvelope = (v) => {
+  if (v === null || v === undefined) return true;
+  return (
+    typeof v === "object" &&
+    typeof v.encrypted === "string" &&
+    typeof v.iv === "string" &&
+    typeof v.authTag === "string"
+  );
+};
+
 const responseSchema = new mongoose.Schema({
 
   formId: {
@@ -15,8 +27,12 @@ const responseSchema = new mongoose.Schema({
   },
 
   answers: {
-    type: Object,
-    default: {}
+    type: mongoose.Schema.Types.Mixed,
+    default: {},
+    validate: {
+      validator: isEncryptedEnvelope,
+      message: "answers must be a valid encrypted envelope { encrypted, iv, authTag }"
+    }
   },
 
   priority: {
@@ -41,16 +57,24 @@ const responseSchema = new mongoose.Schema({
       },
 
       scores: {
-        communication: Number,
-        technical: Number,
-        interest: Number,
-        behaviour: Number,
-        other: Number
+        type: mongoose.Schema.Types.Mixed,
+        default: {},
+        validate: {
+          validator: isEncryptedEnvelope,
+          message: "scores must be a valid encrypted envelope { encrypted, iv, authTag }"
+        }
       },
 
       totalScore: Number,
 
-      comment: String,
+      comment: {
+        type: mongoose.Schema.Types.Mixed,
+        default: null,
+        validate: {
+          validator: isEncryptedEnvelope,
+          message: "comment must be a valid encrypted envelope { encrypted, iv, authTag }"
+        }
+      },
 
       createdAt: {
         type: Date,
