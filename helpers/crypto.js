@@ -1,14 +1,21 @@
 import crypto from "crypto";
 
 const ALGORITHM = "aes-256-gcm";
-const MASTER_KEY = Buffer.from(
-  process.env.MASTER_KEY,
-  "hex"
-);
+const masterKeyHex = process.env.MASTER_KEY;
 
-if (!MASTER_KEY){
-    throw new Error("[Crypto] : Missing Master Key")
+if (!masterKeyHex) {
+  throw new Error(
+    "[Crypto] Missing MASTER_KEY env var. Generate one with `node createMasterKey.js` and add it to .env"
+  );
 }
+
+if (!/^[0-9a-fA-F]{64}$/.test(masterKeyHex)) {
+  throw new Error(
+    "[Crypto] Invalid MASTER_KEY. Expected a 64-character hex string (32 bytes for aes-256-gcm)."
+  );
+}
+
+const MASTER_KEY = Buffer.from(masterKeyHex, "hex");
 
 export function encrypt(text){
     const iv = crypto.randomBytes(12)

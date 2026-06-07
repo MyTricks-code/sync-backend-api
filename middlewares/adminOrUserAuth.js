@@ -15,11 +15,20 @@ const adminOrUserAuth = async (req, res, next) => {
 
 		if (adminToken) {
 			const decodeToken = jwt.verify(adminToken, process.env.JWT_SECRET);
-			if (!decodeToken.email || !decodeToken.club) {
+			if (!decodeToken.email) {
 				return res.json({
 					success: false,
 					message: "Not Authorized. Login Again"
 				});
+			}
+
+			if (
+				decodeToken.role === "director" ||
+				decodeToken.role === "principal" ||
+				decodeToken.role === "jd"
+			) {
+				req.userId = decodeToken.adminId;
+				return next();
 			}
 
 			req.body = {
@@ -28,8 +37,15 @@ const adminOrUserAuth = async (req, res, next) => {
 				club: decodeToken.club
 			};
 
-			const org = await mongoose.connection.collection('organization').findOne({ name: decodeToken.club });
-			const admin = org?.admins?.find((item) => item.email === decodeToken.email);
+			const org = await mongoose.connection
+				.collection('organization')
+				.findOne({
+					name: decodeToken.club
+				});
+
+			const admin = org?.admins?.find(
+				item => item.email === decodeToken.email
+			);
 
 			if (admin?.userId) {
 				req.userId = admin.userId.toString();
