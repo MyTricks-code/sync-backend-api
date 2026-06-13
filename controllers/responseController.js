@@ -410,7 +410,7 @@ export const addReview = async (req, res) => {
         const reviewerAverage = totalScore / scoreValues.length
 
         const encryptedScores = encrypt(JSON.stringify(scores))
-        const encryptedComment = comment ? encrypt(comment) : null
+        const encryptedComment = comment != null ? encrypt(String(comment)) : null
 
         response.review.push({
             reviewerId,

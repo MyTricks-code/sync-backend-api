@@ -5,7 +5,7 @@ import Event from "../models/eventModel.js";
 import ScrapeLog from "../models/scrapelog.model.js";
 import User from "../models/userModel.js";
 import sendEmail from "../helpers/sendEmail.js";
-import { generateEventEmail } from "../helpers/Generateeventemail.js"; // 👈 NEW
+import { generateEventEmail } from "../helpers/Generateeventemail.js"; 
 
 const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -21,11 +21,10 @@ export async function runScrapeJob({ force = false, sinceDate = null } = {}) {
       const age = Date.now() - new Date(lastLog.createdAt).getTime();
       if (age < ONE_WEEK_MS) {
         const hoursAgo = (age / 3_600_000).toFixed(1);
-        console.log(
-          `[Job] Skipping — last scrape was ${hoursAgo}h ago (< 1 week). ` +
-          `Next run allowed after ${new Date(new Date(lastLog.createdAt).getTime() + ONE_WEEK_MS).toISOString()}`
-        );
-        return;
+        const message = `[Job] Skipping — last scrape was ${hoursAgo}h ago (< 1 week). ` +
+          `Next run allowed after ${new Date(new Date(lastLog.createdAt).getTime() + ONE_WEEK_MS).toISOString()}`;
+        console.log(message);
+        return { message, skipped: true };
       }
     }
   } else {
@@ -151,8 +150,9 @@ export async function runScrapeJob({ force = false, sinceDate = null } = {}) {
     durationMs,
   });
 
-  console.log(
-    `[Job] Done in ${durationMs}ms — ` +
-    `${savedPosts} new posts, ${savedEvents} events saved, ${skippedEvents} skipped.`
-  );
+  const message = `[Job] Done in ${durationMs}ms — ` +
+    `${savedPosts} new posts, ${savedEvents} events saved, ${skippedEvents} skipped.`;
+  console.log(message);
+
+  return { message, durationMs, savedPosts, savedEvents, skippedEvents, skipped: false };
 }

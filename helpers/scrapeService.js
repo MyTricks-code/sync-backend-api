@@ -11,7 +11,6 @@ const CLUB_HANDLES = [
   "ait_feet_tappers",
   "aitpune_official",
   "ait_2029",
-  /*
   "ait_volleyball",
   "aitsportsclub",
   "culturalboard_ait",
@@ -37,7 +36,6 @@ const CLUB_HANDLES = [
   "ait_uncensored",
   "minerva_ait",
   "ossclub.ait",
-  */
 ];
 
 /**
@@ -55,7 +53,7 @@ export async function scrapeClubPosts(sinceDate = null) {
 
   const input = {
     username: CLUB_HANDLES,
-    resultsLimit: 50,                      // enough posts to cover 15 days per handle
+    resultsLimit: 10,                      // enough posts to cover 15 days per handle
     onlyPostsNewerThan: cutoffDate,        // Apify will skip older posts → cheaper
     // expandOwners: false,
     // expandChildren: false,

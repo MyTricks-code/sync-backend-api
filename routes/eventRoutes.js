@@ -20,20 +20,34 @@ router.post("/scrape/trigger", async (req, res) => {
   });
 });
 
-
-cron.schedule("0 */2 * * *", async () => {
-  console.log(" Cron Job Triggered: Starting scheduled 6-hour scrape...");
+//Cron run from cron-job.org
+// Future : To implemnt bearer token to prevent direct server access from cron-job.org
+router.post("/scrape", async (req, res) => {
   try {
-    const since15Days = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000);
+    // Call the job and capture its return value
+    const result = await runScrapeJob();
     
-    // Await the job to ensure it finishes before logging success
-    await runScrapeJob({ force: true, sinceDate: since15Days }); 
-    
-    console.log(" Scheduled scrape job completed successfully.");
+    // Send the result back to cron-job.org
+    return res.json(result);
   } catch (error) {
-    console.error(" Error during scheduled scrape job:", error);
+    console.error("[App] Failed to run scrape job:", error);
+    return res.status(500).json({ error: "Error in scrape job" });
   }
 });
+
+// cron.schedule("0 */2 * * *", async () => {
+//   console.log(" Cron Job Triggered: Starting scheduled 6-hour scrape...");
+//   try {
+//     const since15Days = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000);
+    
+//     // Await the job to ensure it finishes before logging success
+//     await runScrapeJob({ force: true, sinceDate: since15Days }); 
+    
+//     console.log(" Scheduled scrape job completed successfully.");
+//   } catch (error) {
+//     console.error(" Error during scheduled scrape job:", error);
+//   }
+// });
 
 // let isRunning = false; // 🔒 Job lock — prevents overlapping runs
 
