@@ -11,11 +11,11 @@ import responseRouter from './routes/responseRoutes.js';
 import adminRouter from './routes/adminRoutes.js';
 import eventsRouter from "./routes/eventRoutes.js";
 import postRouter from './routes/postRoutes.js';
+import superAdminRouter from './routes/superAdminRoutes.js';
 
-const PORT = process.env.PORT || 8000
-const app = express()
-connectDB()
-
+const PORT = process.env.PORT || 8000;
+const app = express();
+connectDB();
 
 
 // Middlewares
@@ -49,8 +49,8 @@ app.use('/api/response', responseRouter)
 app.use('/api/admin', adminRouter);
 app.use("/api/post", postRouter);
 app.use("/api/events", eventsRouter);
+app.use("/api/superadmin", superAdminRouter);
 
-  
 app.listen(PORT, () => {
-  console.log("Server Started: ", PORT)
-})
+  console.log("Server Started: ", PORT);
+});

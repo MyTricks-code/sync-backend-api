@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import responseModel from '../models/responseModel.js';
 import userModel from '../models/userModel.js';
 import sendMail from "../helpers/resendEmail.js";
+import SystemAdmin from "../models/systemAdminModel.js";
 
 const connectOrg = async (club) => {
   const org = await mongoose.connection
@@ -21,8 +22,55 @@ export const adminLogin = async (req, res) => {
 
     const { email, club } = req.body;
 
-    if (!email || !club) {
-      return res.json({ success: false, message: "Missing fields" });
+    if (!email) {
+      return res.json({ success: false, message: "Email required" });
+    }
+
+    const superAdmin =
+      await SystemAdmin.findOne({
+        email
+      });
+
+    if (superAdmin) {
+
+      const otp = String(
+        Math.floor(
+          100000 +
+          Math.random() * 900000
+        )
+      );
+
+      superAdmin.loginOtp = otp;
+
+      superAdmin.loginOtpExpireAt =
+        Date.now() + 15 * 60 * 1000;
+
+      await superAdmin.save();
+
+      const mailResult =
+        await sendMail(
+          email,
+          "Admin Login OTP",
+          `Your OTP is ${otp}. It expires in 15 minutes.`
+        );
+
+      if (mailResult?.success === false) {
+
+        return res.json({
+          success: false,
+          message:
+            mailResult.error
+        });
+
+      }
+
+      return res.json({
+        success: true,
+        role: superAdmin.role,
+        isSuperAdmin: true,
+        message: "OTP sent"
+      });
+
     }
 
     const org = await connectOrg(club);
@@ -43,17 +91,40 @@ export const adminLogin = async (req, res) => {
     const otp = String(Math.floor(100000 + Math.random() * 900000));
 
 
-    await mongoose.connection.collection("organization").updateOne(
-      { name: club, "admins.email": email },
-      {
-        $set: {
-          "admins.$.loginOtp": otp,
-          "admins.$.loginOtpExpireAt": Date.now() + 15 * 60 * 1000
-        }
-      }
+    const updateResult =
+      await mongoose.connection
+        .collection("organization")
+        .updateOne(
+          {
+            name: club,
+            "admins.email": email
+          },
+          {
+            $set: {
+              "admins.$.loginOtp": otp,
+              "admins.$.loginOtpExpireAt":
+                Number(
+                  Date.now() + 15 * 60 * 1000
+                )
+            }
+          }
+        );
+
+    console.log(
+      "OTP UPDATE RESULT:",
+      updateResult
     );
 
     // Send OTP
+    console.log(
+      "OTP GENERATED:",
+      otp
+    );
+
+    console.log(
+      "EMAIL:",
+      email
+    );
     const mailResult = await sendMail(email, "Admin Login OTP", `Your OTP is ${otp}. It expires in 15 minutes.`);
 
     if (mailResult && mailResult.success === false) {
@@ -68,7 +139,7 @@ export const adminLogin = async (req, res) => {
       message: "OTP sent to email"
     });
 
-    const token = jwt.sign({ email: admin.email, club: club }, process.env.JWT_SECRET || 'replace-me', { expiresIn: '7d' })
+    const token = jwt.sign({ email: admin.email, club: club, role: admin.role, adminId: admin.userId }, process.env.JWT_SECRET || 'replace-me', { expiresIn: '7d' })
     res.cookie('adminToken', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -93,8 +164,84 @@ export const verifyAdminOtp = async (req, res) => {
   try {
     const { email, club, otp } = req.body;
 
-    if (!email || !club || !otp) {
+    if (!email || !otp) {
       return res.json({ success: false, message: "Missing fields" });
+    }
+    const superAdmin =
+      await SystemAdmin.findOne({
+        email
+      });
+
+    if (superAdmin) {
+
+      if (
+        superAdmin.loginOtp !== otp
+      ) {
+        return res.json({
+          success: false,
+          message: "Invalid OTP"
+        });
+      }
+
+      if (
+        superAdmin.loginOtpExpireAt <
+        Date.now()
+      ) {
+        return res.json({
+          success: false,
+          message: "OTP expired"
+        });
+      }
+
+      superAdmin.loginOtp = "";
+
+      superAdmin.loginOtpExpireAt = 0;
+
+      await superAdmin.save();
+
+      const token =
+        jwt.sign(
+          {
+            email:
+              superAdmin.email,
+
+            role:
+              superAdmin.role,
+
+            adminId:
+              superAdmin._id
+          },
+          process.env.JWT_SECRET,
+          {
+            expiresIn: "7d"
+          });
+
+      res.cookie(
+        "adminToken",
+        token,
+        {
+          httpOnly: true,
+          secure:
+            process.env.NODE_ENV === "production",
+
+          sameSite:
+            process.env.NODE_ENV === "production"
+              ? "none"
+              : "strict",
+
+          maxAge:
+            7 * 24 * 60 * 60 * 1000
+        }
+      );
+
+      return res.json({
+        success: true,
+        role:
+          superAdmin.role,
+        message:
+          "Login successful"
+      });
+
     }
 
     const org = await connectOrg(club);
@@ -130,7 +277,7 @@ export const verifyAdminOtp = async (req, res) => {
 
     // CREATE TOKEN (7 DAYS)
     const token = jwt.sign(
-      { email: admin.email, club: club },
+      { email: admin.email, club: club, role: admin.role, adminId: admin.userId },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -275,6 +422,22 @@ export const getAllOrg = async (req, res) => {
 
 export const getAdminInfo = async (req, res) => {
   try {
+    if (
+      req.admin?.role === "director" ||
+      req.admin?.role === "principal" ||
+      req.admin?.role === "jd"
+    ) {
+
+      return res.json({
+        success: true,
+        data: {
+          name: req.admin.email,
+          email: req.admin.email,
+          role: req.admin.role
+        }
+      });
+
+    }
     const { email, club } = req.body;
     if (!email || !club) {
       return res.json({ success: false, message: "Missing credentials" });
@@ -296,14 +459,14 @@ export const getAdminInfo = async (req, res) => {
       data: {
         name: admin.name || club + ' Admin',
         email: admin.email,
-        role: 'Admin',
+        role: admin.role || 'Admin',
         avatar: org.logo || org.img,
         club: {
           id: org.abbr || club,
           name: org.name || club,
           abbr: org.abbr || club,
           logo: org.logo || org.img,
-          role: 'Admin'
+          role: admin.role || 'Admin'
         }
       }
     });

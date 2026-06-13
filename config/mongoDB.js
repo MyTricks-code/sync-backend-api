@@ -29,7 +29,8 @@ const connectDB = async () => {
         }
     });
 
-    // 4. Connect
+    // 4. Connect with an extended buffer timeout to handle slow initial DNS resolution
+    mongoose.set('bufferTimeoutMS', 45000);
     try {
         await mongoose.connect(mongoUri);
     } catch (error) {
