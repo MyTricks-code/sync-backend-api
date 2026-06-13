@@ -10,7 +10,7 @@ import { generateEventEmail } from "../helpers/Generateeventemail.js";
 const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 export async function runScrapeJob({ force = false, sinceDate = null } = {}) {
-  const actualSinceDate = sinceDate || new Date(Date.now() - 15 * 24 * 60 * 60 * 1000);
+  const actualSinceDate = sinceDate || new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
 
   const jobStart = Date.now();
   console.log(`[Job] Starting scrape... (force=${force}, sinceDate=${actualSinceDate.toISOString()})`);
