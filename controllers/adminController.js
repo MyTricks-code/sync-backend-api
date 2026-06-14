@@ -199,6 +199,17 @@ export const verifyAdminOtp = async (req, res) => {
 
       await superAdmin.save();
 
+      // A superadmin may ALSO be an admin (e.g. faculty) inside an organization.
+      // Carry that org context in the token so the same account keeps working in
+      // the regular Admin panel (forms, members, responses) too.
+      const memberOrg = await mongoose.connection
+        .collection("organization")
+        .findOne({ "admins.email": email });
+
+      const orgAdminEntry = memberOrg?.admins?.find(
+        (a) => a.email === email
+      );
+
       const token =
         jwt.sign(
           {
@@ -209,7 +220,16 @@ export const verifyAdminOtp = async (req, res) => {
               superAdmin.role,
 
             adminId:
-              superAdmin._id
+              superAdmin._id,
+
+            isSuperAdmin: true,
+
+            ...(memberOrg
+              ? {
+                  club: memberOrg.name,
+                  orgRole: orgAdminEntry?.role,
+                }
+              : {}),
           },
           process.env.JWT_SECRET,
           {

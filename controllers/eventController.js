@@ -4,7 +4,7 @@ import Event from "../models/eventModel.js"
 export const getAllEvents = async (req, res) => {
   try {
 
-    const { club, from, to } = req.query
+    const { club, from, to, page, limit } = req.query
 
     let filter = {}
 
@@ -16,13 +16,61 @@ export const getAllEvents = async (req, res) => {
       if (to) filter.date.$lte = new Date(to)
     }
 
-    const events = await Event.find(filter)
-      .sort({ date: 1 })
-      .lean()
+    // Backward compatible: when no `page` is requested, return the full list
+    // (used by the calendar view).
+    if (page === undefined) {
+      const events = await Event.find(filter)
+        .sort({ date: 1 })
+        .lean()
+
+      return res.json({
+        success: true,
+        events
+      })
+    }
+
+    // Paginated path: upcoming events first (ascending), then past events.
+    const pageNum = Math.max(1, Number(page) || 1)
+    const perPage = Math.min(50, Math.max(1, Number(limit) || 20))
+    const skip = (pageNum - 1) * perPage
+
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+
+    const pipeline = [
+      { $match: filter },
+      {
+        $addFields: {
+          isPast: {
+            $cond: [
+              { $and: [{ $ne: ["$date", null] }, { $gte: ["$date", todayStart] }] },
+              0,
+              1
+            ]
+          }
+        }
+      },
+      { $sort: { isPast: 1, date: 1 } },
+      {
+        $facet: {
+          events: [{ $skip: skip }, { $limit: perPage }, { $project: { isPast: 0 } }],
+          meta: [{ $count: "total" }]
+        }
+      }
+    ]
+
+    const [result] = await Event.aggregate(pipeline)
+    const events = result?.events || []
+    const total = result?.meta?.[0]?.total || 0
+    const hasMore = skip + events.length < total
 
     return res.json({
       success: true,
-      events
+      events,
+      page: pageNum,
+      limit: perPage,
+      total,
+      hasMore
     })
 
   } catch (err) {

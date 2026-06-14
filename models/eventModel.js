@@ -17,4 +17,10 @@ const eventSchema = new mongoose.Schema(
 
 eventSchema.index({ date: 1 })
 
+// TTL: auto-delete events 1 year after they were created.
+eventSchema.index(
+  { createdAt: 1 },
+  { expireAfterSeconds: 60 * 60 * 24 * 365 }
+);
+
 export default mongoose.model("Event", eventSchema);

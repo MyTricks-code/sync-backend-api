@@ -458,3 +458,88 @@ async(req,res)=>{
  }
 
 }
+
+
+// ── Faculty management ───────────────────────────────────────────────
+// A "faculty" is an entry in the organization's `admins` array with
+// role === "faculty". All three handlers run AFTER resolveOrg, so
+// req.org / req.orgId are set and the organization exists.
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export const getFaculties = async (req, res) => {
+  try {
+    const admins = Array.isArray(req.org?.admins) ? req.org.admins : [];
+    const faculties = admins
+      .filter((a) => a?.role === "faculty")
+      .map((a) => ({ name: a.name, email: a.email, role: a.role }));
+    return res.json({ success: true, faculties });
+  } catch (err) {
+    return res.json({ success: false, message: err.message });
+  }
+};
+
+export const addFaculty = async (req, res) => {
+  try {
+    const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+    const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+
+    if (!name || !email) {
+      return res.json({ success: false, message: "Name and email are required" });
+    }
+    if (name.length > 100) {
+      return res.json({ success: false, message: "Name is too long" });
+    }
+    if (email.length > 200 || !EMAIL_RE.test(email)) {
+      return res.json({ success: false, message: "Please enter a valid email" });
+    }
+
+    const orgs = mongoose.connection.collection("organization");
+
+    // Prevent duplicate email among this club's admins (any role).
+    const dup = await orgs.findOne({ _id: req.orgId, "admins.email": email });
+    if (dup) {
+      return res.json({ success: false, message: "An admin/faculty with this email already exists in this club" });
+    }
+
+    const faculty = {
+      name,
+      email,
+      role: "faculty",
+      loginOtp: "",
+      loginOtpExpireAt: 0,
+    };
+
+    await orgs.updateOne({ _id: req.orgId }, { $push: { admins: faculty } });
+
+    return res.json({ success: true, faculty });
+  } catch (err) {
+    return res.json({ success: false, message: err.message });
+  }
+};
+
+export const removeFaculty = async (req, res) => {
+  try {
+    const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+
+    if (!email || !EMAIL_RE.test(email)) {
+      return res.json({ success: false, message: "Valid faculty email is required" });
+    }
+
+    const orgs = mongoose.connection.collection("organization");
+
+    // Only pull admins that are faculty — never remove a director/principal/jd/admin.
+    const result = await orgs.updateOne(
+      { _id: req.orgId },
+      { $pull: { admins: { email, role: "faculty" } } }
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.json({ success: false, message: "Faculty not found" });
+    }
+
+    return res.json({ success: true, message: "Faculty removed" });
+  } catch (err) {
+    return res.json({ success: false, message: err.message });
+  }
+};

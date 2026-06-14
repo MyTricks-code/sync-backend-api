@@ -13,4 +13,10 @@ const postSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// TTL: auto-delete posts 6 months after they were created.
+postSchema.index(
+  { createdAt: 1 },
+  { expireAfterSeconds: 60 * 60 * 24 * 30 * 6 }
+);
+
 export default mongoose.model("Post", postSchema);

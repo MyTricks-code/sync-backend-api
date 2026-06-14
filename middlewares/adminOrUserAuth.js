@@ -28,6 +28,30 @@ const adminOrUserAuth = async (req, res, next) => {
 				decodeToken.role === "jd"
 			) {
 				req.userId = decodeToken.adminId;
+
+				// A superadmin who is ALSO an org admin (e.g. faculty) carries the
+				// org context in the token — inject it so org-scoped endpoints
+				// (like club forms) authorize them through that organization.
+				if (decodeToken.club) {
+					req.body = {
+						...req.body,
+						email: decodeToken.email,
+						club: decodeToken.club
+					};
+
+					const org = await mongoose.connection
+						.collection('organization')
+						.findOne({ name: decodeToken.club });
+
+					const admin = org?.admins?.find(
+						item => item.email === decodeToken.email
+					);
+
+					if (admin?.userId) {
+						req.userId = admin.userId.toString();
+					}
+				}
+
 				return next();
 			}
 
