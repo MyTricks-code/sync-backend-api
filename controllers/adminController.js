@@ -525,3 +525,120 @@ export const getAllMembers = async (req, res) => {
   }
 }
 
+// ── Secretary management ─────────────────────────────────────────────
+// A secretary is an entry in the organization's `admins` array with
+// role === "secretary". Per the role model, only a FACULTY of the club
+// may add/remove secretaries. We verify the caller's org role from the
+// org document itself (not just the token) so the check is authoritative
+// and also covers a superadmin who is also a faculty of this club.
+
+const SECRETARY_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const resolveCallerOrgRole = async (req) => {
+  const club = req.admin?.club || req.body?.club;
+  const email = req.admin?.email || req.body?.email;
+  if (!club || !email) return { org: null, me: null };
+  const org = await connectOrg(club);
+  const me = org?.admins?.find((a) => a.email === email) || null;
+  return { org, me };
+};
+
+export const getSecretaries = async (req, res) => {
+  try {
+    const { org, me } = await resolveCallerOrgRole(req);
+    if (!org) {
+      return res.json({ success: false, message: "Organization not found" });
+    }
+
+    const secretaries = (org.admins || [])
+      .filter((a) => a.role === "secretary")
+      .map((a) => ({ name: a.name, email: a.email, role: a.role }));
+
+    return res.json({
+      success: true,
+      secretaries,
+      isFaculty: me?.role === "faculty",
+    });
+  } catch (err) {
+    return res.json({ success: false, message: err.message });
+  }
+};
+
+export const addSecretary = async (req, res) => {
+  try {
+    const { org, me } = await resolveCallerOrgRole(req);
+    if (!org) {
+      return res.json({ success: false, message: "Organization not found" });
+    }
+    if (me?.role !== "faculty") {
+      return res.json({ success: false, message: "Only faculty can add secretaries" });
+    }
+
+    // NOTE: `adminAuth` overwrites req.body.email with the CALLER's email (anti-
+    // spoofing). The new secretary's details therefore travel in distinct fields
+    // (secretaryName / secretaryEmail), mirroring the `memberEmail` convention.
+    const name = typeof req.body?.secretaryName === "string" ? req.body.secretaryName.trim() : "";
+    const email = typeof req.body?.secretaryEmail === "string" ? req.body.secretaryEmail.trim().toLowerCase() : "";
+
+    if (!name || !email) {
+      return res.json({ success: false, message: "Name and email are required" });
+    }
+    if (name.length > 100) {
+      return res.json({ success: false, message: "Name is too long" });
+    }
+    if (email.length > 200 || !SECRETARY_EMAIL_RE.test(email)) {
+      return res.json({ success: false, message: "Please enter a valid email" });
+    }
+
+    // No duplicate email among this club's admins (any role).
+    const dup = (org.admins || []).some((a) => a.email?.toLowerCase() === email);
+    if (dup) {
+      return res.json({ success: false, message: "An admin/secretary with this email already exists in this club" });
+    }
+
+    await mongoose.connection.collection("organization").updateOne(
+      { _id: org._id },
+      {
+        $push: {
+          admins: { name, email, role: "secretary", loginOtp: "", loginOtpExpireAt: 0 },
+        },
+      }
+    );
+
+    return res.json({ success: true, message: "Secretary added" });
+  } catch (err) {
+    return res.json({ success: false, message: err.message });
+  }
+};
+
+export const removeSecretary = async (req, res) => {
+  try {
+    const { org, me } = await resolveCallerOrgRole(req);
+    if (!org) {
+      return res.json({ success: false, message: "Organization not found" });
+    }
+    if (me?.role !== "faculty") {
+      return res.json({ success: false, message: "Only faculty can remove secretaries" });
+    }
+
+    const email = typeof req.body?.secretaryEmail === "string" ? req.body.secretaryEmail.trim().toLowerCase() : "";
+    if (!email || !SECRETARY_EMAIL_RE.test(email)) {
+      return res.json({ success: false, message: "Valid secretary email is required" });
+    }
+
+    // Only ever pull secretaries — never a faculty/director via this route.
+    const result = await mongoose.connection.collection("organization").updateOne(
+      { _id: org._id },
+      { $pull: { admins: { email, role: "secretary" } } }
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.json({ success: false, message: "Secretary not found" });
+    }
+
+    return res.json({ success: true, message: "Secretary removed" });
+  } catch (err) {
+    return res.json({ success: false, message: err.message });
+  }
+};
+

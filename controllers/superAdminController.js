@@ -481,8 +481,11 @@ export const getFaculties = async (req, res) => {
 
 export const addFaculty = async (req, res) => {
   try {
+    // NOTE: `adminAuth` overwrites req.body.email with the CALLER's email when
+    // their token carries a club (anti-spoofing). The new faculty's email
+    // therefore travels in a distinct field (facultyEmail) to avoid collision.
     const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
-    const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+    const email = typeof req.body?.facultyEmail === "string" ? req.body.facultyEmail.trim().toLowerCase() : "";
 
     if (!name || !email) {
       return res.json({ success: false, message: "Name and email are required" });
@@ -520,7 +523,7 @@ export const addFaculty = async (req, res) => {
 
 export const removeFaculty = async (req, res) => {
   try {
-    const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+    const email = typeof req.body?.facultyEmail === "string" ? req.body.facultyEmail.trim().toLowerCase() : "";
 
     if (!email || !EMAIL_RE.test(email)) {
       return res.json({ success: false, message: "Valid faculty email is required" });
