@@ -1,6 +1,6 @@
 import 'dotenv/config';
-import connectDB from './config/mongoDB.js';
-import { getAdminInfo } from './controllers/adminController.js';
+import connectDB from '../config/mongoDB.js';
+import { getAdminInfo } from '../controllers/adminController.js';
 
 async function test() {
   await connectDB();

@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import responseModel from '../models/responseModel.js';
 import userModel from '../models/userModel.js';
 import sendMail from "../helpers/resendEmail.js";
-import SystemAdmin from "../models/systemAdminModel.js";
+import SuperAdmin from "../models/superAdminModel.js";
 
 const connectOrg = async (club) => {
   const org = await mongoose.connection
@@ -27,7 +27,7 @@ export const adminLogin = async (req, res) => {
     }
 
     const superAdmin =
-      await SystemAdmin.findOne({
+      await SuperAdmin.findOne({
         email
       });
 
@@ -168,7 +168,7 @@ export const verifyAdminOtp = async (req, res) => {
       return res.json({ success: false, message: "Missing fields" });
     }
     const superAdmin =
-      await SystemAdmin.findOne({
+      await SuperAdmin.findOne({
         email
       });
 

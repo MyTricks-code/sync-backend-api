@@ -1,13 +1,13 @@
 import 'dotenv/config';
-import connectDB from './config/mongoDB.js';
-import SystemAdmin from './models/systemAdminModel.js';
+import connectDB from '../config/mongoDB.js';
+import SuperAdmin from '../models/superAdminModel.js';
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 
 async function test() {
   await connectDB();
   const email = 'jiteshyadav_250097@aitpune.edu.in';
-  const superAdmin = await SystemAdmin.findOne({ email });
+  const superAdmin = await SuperAdmin.findOne({ email });
   console.log("SuperAdmin record:", superAdmin);
   
   const org = await mongoose.connection.collection("organization").findOne({ "admins.email": email });

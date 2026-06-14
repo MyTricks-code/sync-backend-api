@@ -5,7 +5,8 @@ import Event from "../models/eventModel.js";
 import ScrapeLog from "../models/scrapelog.model.js";
 import User from "../models/userModel.js";
 import sendEmail from "../helpers/sendEmail.js";
-import { generateEventEmail } from "../helpers/Generateeventemail.js"; 
+import { generateEventEmail } from "../helpers/Generateeventemail.js";
+import { findOrg } from "../middlewares/resolveOrg.js";
 
 const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -76,19 +77,24 @@ export async function runScrapeJob({ force = false, sinceDate = null } = {}) {
     console.log(`[Job] Gemini found ${announcements.length} event announcement(s)`);
 
     for (const ann of announcements) {
-      const description = postsToClassify.find(p => p.instagramId === ann.instagramId)?.caption ?? null;
+      const post = postsToClassify.find(p => p.instagramId === ann.instagramId);
+      const description = post?.caption ?? null;
+
+      // Resolve the owning organization from the post's Instagram handle.
+      const org = post?.clubHandle ? await findOrg(post.clubHandle) : null;
 
       const result = await Event.updateOne(
         { instagramId: ann.instagramId },
         {
           $set: {
-            instagramId: ann.instagramId,
-            postUrl:     ann.postUrl     ?? null,
-            eventName:   ann.eventName   ?? null,
-            date:        ann.date        ?? null,
-            time:        ann.time        ?? null,
-            venue:       ann.venue       ?? null,
-            club:        ann.club        ?? null,
+            instagramId:  ann.instagramId,
+            postUrl:      ann.postUrl     ?? null,
+            eventName:    ann.eventName   ?? null,
+            date:         ann.date        ?? null,
+            time:         ann.time        ?? null,
+            venue:        ann.venue       ?? null,
+            club:         ann.club        ?? post?.clubHandle ?? null,
+            organization: org?._id        ?? null,
             description,
           },
         },

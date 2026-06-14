@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const systemAdminSchema =
+const superAdminSchema =
 new mongoose.Schema({
 
     userId:{
@@ -45,11 +45,12 @@ new mongoose.Schema({
     }
 
 },{
-    timestamps:true
+    timestamps:true,
+    collection:"superadmins"
 });
 
-export default mongoose.models.SystemAdmin ||
+export default mongoose.models.SuperAdmin ||
 mongoose.model(
-    "SystemAdmin",
-    systemAdminSchema
+    "SuperAdmin",
+    superAdminSchema
 );

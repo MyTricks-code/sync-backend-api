@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import connectDB from './config/mongoDB.js';
+import connectDB from '../config/mongoDB.js';
 import mongoose from 'mongoose';
 
 async function test() {

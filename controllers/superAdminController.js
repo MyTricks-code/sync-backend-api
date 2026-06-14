@@ -222,6 +222,18 @@ async(req,res)=>{
     0
   );
 
+  const clubsList =
+  clubs.map((c)=>({
+    _id: c._id,
+    name: c.name,
+    faculty: c.faculty || null,
+    clubLogo: c.clubLogo || c.logo || null,
+    membersCount: c.members?.length || 0,
+    secretariesCount: c.secretaries?.length || 0,
+    formsCount: c.forms?.length || 0,
+    isActive: c.isActive !== false
+  }));
+
   const totalForms =
   await formModel.countDocuments();
 
@@ -248,7 +260,8 @@ async(req,res)=>{
       totalForms,
       totalResponses,
       totalEvents,
-      timelineEvents
+      timelineEvents,
+      clubs:clubsList
     }
   });
 
@@ -269,10 +282,12 @@ async(req,res)=>{
  try{
 
   const {
-    club,
     month,
     year
   } = req.query;
+
+  // req.org / req.orgId are populated by the resolveOrg middleware.
+  const org = req.org;
 
   const startDate =
   new Date(
@@ -293,7 +308,7 @@ async(req,res)=>{
 
   const events =
   await Event.find({
-    club,
+    organization: req.orgId,
     date:{
       $gte:startDate,
       $lte:endDate
@@ -303,12 +318,133 @@ async(req,res)=>{
   return res.json({
     success:true,
     data:{
-      club,
+      club: org?.name,
+      clubId: req.orgId,
       month,
       year,
       totalEvents:
       events.length,
       events
+    }
+  });
+
+ }catch(err){
+
+  return res.json({
+    success:false,
+    message:err.message
+  });
+
+ }
+
+}
+
+
+export const generateQuarterReport =
+async(req,res)=>{
+
+ try{
+
+  const months =
+  Math.max(
+    1,
+    Math.min(
+      24,
+      Number(req.query.months) || 4
+    )
+  );
+
+  const now = new Date();
+
+  // Month-aligned window: covers `months` full months ending with the current month.
+  const startDate =
+  new Date(
+    now.getFullYear(),
+    now.getMonth() - (months - 1),
+    1
+  );
+
+  const endDate =
+  new Date(
+    now.getFullYear(),
+    now.getMonth() + 1,
+    0,
+    23,
+    59,
+    59
+  );
+
+  const events =
+  await Event.find({
+    date:{
+      $gte:startDate,
+      $lte:endDate
+    }
+  }).sort({date:1}).lean();
+
+  // Build org id -> name map for the orgs referenced by these events.
+  const orgIds =
+  [...new Set(
+    events
+      .filter(e=>e.organization)
+      .map(e=>String(e.organization))
+  )];
+
+  const orgDocs =
+  orgIds.length
+    ? await mongoose.connection
+        .collection("organization")
+        .find({
+          _id:{
+            $in:orgIds.map(
+              id=>new mongoose.Types.ObjectId(id)
+            )
+          }
+        })
+        .toArray()
+    : [];
+
+  const orgNameById = {};
+  orgDocs.forEach(o=>{ orgNameById[String(o._id)] = o.name; });
+
+  const resolveClubName = (e)=>
+    (e.organization && orgNameById[String(e.organization)])
+    || e.club
+    || "Unassigned";
+
+  // Group events by club name.
+  const groupMap = new Map();
+  const enriched = events.map(e=>{
+    const clubName = resolveClubName(e);
+    if(!groupMap.has(clubName)){
+      groupMap.set(clubName,{
+        club: clubName,
+        clubId: e.organization || null,
+        count: 0,
+        events: []
+      });
+    }
+    const g = groupMap.get(clubName);
+    g.count += 1;
+    g.events.push(e);
+    return { ...e, clubName };
+  });
+
+  const clubs =
+  [...groupMap.values()].sort(
+    (a,b)=>b.count - a.count
+  );
+
+  return res.json({
+    success:true,
+    data:{
+      months,
+      startDate,
+      endDate,
+      totalEvents: events.length,
+      totalClubs: clubs.filter(c=>c.club !== "Unassigned").length,
+      clubs,
+      events: enriched
     }
   });
 

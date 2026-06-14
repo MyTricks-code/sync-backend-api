@@ -5,6 +5,7 @@ const eventSchema = new mongoose.Schema(
     instagramId: { type: String, required: true, unique: true },
     postUrl: { type: String, default: null },
     club: { type: String, index: true },
+    organization: { type: mongoose.Schema.Types.ObjectId, ref: "organization", index: true, default: null },
     eventName: { type: String, default: null },
     date: { type: Date, default: null }, // bhai date string m kaisse store hogi, jab scrape krna hoga to date string ko date object m convert krna pdega n
     time: { type: String, default: null }, // e.g. "6:00 PM" or null

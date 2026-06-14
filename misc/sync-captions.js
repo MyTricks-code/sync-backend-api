@@ -1,8 +1,8 @@
 import mongoose from 'mongoose';
 import 'dotenv/config';
-import Event from './models/eventModel.js';
-import Post from './models/post.model.js';
-import connectDB from './config/mongoDB.js';
+import Event from '../models/eventModel.js';
+import Post from '../models/post.model.js';
+import connectDB from '../config/mongoDB.js';
 
 async function syncCaptions() {
   await connectDB();
