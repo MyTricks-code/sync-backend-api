@@ -35,6 +35,7 @@ router.post("/scrape", async (req, res) => {
   }
 });
 
+// This will not work with render as vo so jata h bar bar
 // cron.schedule("0 */2 * * *", async () => {
 //   console.log(" Cron Job Triggered: Starting scheduled 6-hour scrape...");
 //   try {
