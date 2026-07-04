@@ -29,17 +29,21 @@ const userSchema = new mongoose.Schema({
     isAccountVerified: { type: Boolean, default: false },
     resetOtp: { type: String, default: "" },
     resetOtpExpireAt: { type: Number, default: 0 },
-    role: { type: String, default: "rookie" },
+    // Membership status within the platform — NOT an academic year.
+    role: { type: String, enum: ["applicant", "member"], default: "applicant" },
     clubs: [{
         type: mongoose.Schema.Types.ObjectId,
         ref : "Organization"
     }],
+    // Academic year (FE/SE/TE/BE) — NOT a membership role.
     year: {
-        type: String, required: function () {
+        type: String,
+        enum: ["FE", "SE", "TE", "BE"],
+        required: function () {
             return this.authProvider === "local";
         }
     },
-    bio: { type: String, default: "Rookie Here. Guide me please hui hui" },
+    bio: { type: String, default: "Too lazy to type" },
     number: { type: Number, unique: true },
 
     avatar:{ type:String },
@@ -53,6 +57,12 @@ const userSchema = new mongoose.Schema({
     }]
 
 }, { timestamps: true })
+
+userSchema.pre('validate', function () {
+    if (!['applicant', 'member'].includes(this.role)) {
+        this.role = 'applicant';
+    }
+});
 
 userSchema.index(
     { regnNo: 1 }, 

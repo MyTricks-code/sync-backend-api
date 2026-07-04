@@ -4,6 +4,7 @@ import responseModel from "../models/responseModel.js";
 import Event from "../models/eventModel.js";
 import taskModel from "../models/taskModel.js";
 import userModel from "../models/userModel.js";
+import { slugify } from "../helpers/slugify.js";
 
 
 export const deleteClub =
@@ -542,6 +543,163 @@ export const removeFaculty = async (req, res) => {
     }
 
     return res.json({ success: true, message: "Faculty removed" });
+  } catch (err) {
+    return res.json({ success: false, message: err.message });
+  }
+};
+
+
+// ── Clubs overview / detail (superadmin panel) ──────────────────────
+// Organization has no live Mongoose model, so slugs are derived on the
+// fly from `name` (slugify) rather than stored — kept consistent between
+// the overview list and the detail lookup by using the same helper.
+
+export const getClubsOverview = async (req, res) => {
+  try {
+    const clubs = await mongoose.connection
+      .collection("organization")
+      .find({})
+      .toArray();
+
+    const clubsList = await Promise.all(
+      clubs.map(async (c) => {
+        const admins = Array.isArray(c.admins) ? c.admins : [];
+        const faculty = admins
+          .filter((a) => a?.role === "faculty")
+          .map((a) => ({ name: a.name, email: a.email }));
+        const secretaries = admins
+          .filter((a) => a?.role === "secretary")
+          .map((a) => ({ name: a.name, email: a.email }));
+
+        const recentEvents = await Event.find({
+          $or: [{ organization: c._id }, { club: c.name }],
+        })
+          .sort({ date: -1 })
+          .limit(2)
+          .select("eventName date venue postUrl")
+          .lean();
+
+        return {
+          _id: c._id,
+          name: c.name,
+          slug: slugify(c.name),
+          clubLogo: c.clubLogo || c.logo || null,
+          strength: c.members?.length || 0,
+          faculty,
+          secretaries,
+          recentEvents,
+          isActive: c.isActive !== false,
+        };
+      })
+    );
+
+    return res.json({ success: true, clubs: clubsList });
+  } catch (err) {
+    return res.json({ success: false, message: err.message });
+  }
+};
+
+const attachClubNames = (users, orgs) => {
+  const orgNameById = new Map(orgs.map((o) => [String(o._id), o.name]));
+  return users.map((u) => ({
+    ...u,
+    clubNames: (u.clubs || [])
+      .map((id) => orgNameById.get(String(id)))
+      .filter(Boolean),
+  }));
+};
+
+export const getClubDetail = async (req, res) => {
+  try {
+    const slug = typeof req.query?.slug === "string" ? req.query.slug.trim() : "";
+
+    if (!slug) {
+      return res.json({ success: false, message: "slug is required" });
+    }
+
+    const clubs = await mongoose.connection
+      .collection("organization")
+      .find({})
+      .toArray();
+
+    const org = clubs.find((c) => slugify(c.name) === slug);
+
+    if (!org) {
+      return res.json({ success: false, message: "Club not found" });
+    }
+
+    const admins = Array.isArray(org.admins) ? org.admins : [];
+    const faculty = admins
+      .filter((a) => a?.role === "faculty")
+      .map((a) => ({ name: a.name, email: a.email }));
+    const secretaries = admins
+      .filter((a) => a?.role === "secretary")
+      .map((a) => ({ name: a.name, email: a.email }));
+
+    const memberIds = org.members || [];
+    const rawMembers = await userModel
+      .find({ _id: { $in: memberIds } })
+      .select("name regnNo year branch role email hobbies bio number avatar authProvider createdAt clubs")
+      .sort({ name: 1 })
+      .lean();
+
+    const members = attachClubNames(rawMembers, clubs);
+
+    return res.json({
+      success: true,
+      club: {
+        _id: org._id,
+        name: org.name,
+        slug,
+        clubLogo: org.clubLogo || org.logo || null,
+        strength: members.length,
+        faculty,
+        secretaries,
+      },
+      members,
+    });
+  } catch (err) {
+    return res.json({ success: false, message: err.message });
+  }
+};
+
+export const searchUsers = async (req, res) => {
+  try {
+    const q = typeof req.query?.q === "string" ? req.query.q.trim() : "";
+
+    if (!q) {
+      return res.json({ success: true, users: [] });
+    }
+
+    const orConditions = [
+      { name: { $regex: q, $options: "i" } },
+      {
+        $expr: {
+          $regexMatch: {
+            input: { $toString: "$regnNo" },
+            regex: q,
+            options: "i",
+          },
+        },
+      },
+    ];
+
+    const rawUsers = await userModel
+      .find({ $or: orConditions })
+      .select("name regnNo year branch role email hobbies bio number avatar authProvider createdAt clubs")
+      .sort({ name: 1 })
+      .limit(25)
+      .lean();
+
+    const orgs = await mongoose.connection
+      .collection("organization")
+      .find({})
+      .project({ name: 1 })
+      .toArray();
+
+    const users = attachClubNames(rawUsers, orgs);
+
+    return res.json({ success: true, users });
   } catch (err) {
     return res.json({ success: false, message: err.message });
   }

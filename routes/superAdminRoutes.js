@@ -1,5 +1,5 @@
 import express from 'express';
-import { changeFaculty, createOrganization, deleteClub , getGlobalDashboard, generateIqacReport, generateQuarterReport, addFaculty, getFaculties, removeFaculty } from '../controllers/superAdminController.js';
+import { changeFaculty, createOrganization, deleteClub , getGlobalDashboard, generateIqacReport, generateQuarterReport, addFaculty, getFaculties, removeFaculty, getClubsOverview, getClubDetail, searchUsers } from '../controllers/superAdminController.js';
 import adminAuth from '../middlewares/adminAuth.js';
 import { roleGuard } from '../middlewares/roleGuard.js';
 import { resolveOrg } from '../middlewares/resolveOrg.js';
@@ -59,5 +59,11 @@ superAdminRouter.get('/faculties', adminAuth, roleGuard('director', 'principal',
 superAdminRouter.delete('/remove-faculty', adminAuth, roleGuard('director', 'principal', 'jd'), resolveOrg, removeFaculty);
 
 superAdminRouter.delete('/delete-club', adminAuth, roleGuard('director', 'principal', 'jd'), deleteClub);
+
+superAdminRouter.get('/clubs-overview', adminAuth, roleGuard('director', 'principal', 'jd'), getClubsOverview);
+
+superAdminRouter.get('/club-detail', adminAuth, roleGuard('director', 'principal', 'jd'), getClubDetail);
+
+superAdminRouter.get('/search-users', adminAuth, roleGuard('director', 'principal', 'jd'), searchUsers);
 
 export default superAdminRouter;

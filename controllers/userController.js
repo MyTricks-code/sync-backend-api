@@ -4,6 +4,8 @@ import jwt from 'jsonwebtoken';
 import sendMail from "../helpers/resendEmail.js";
 import mongoose from "mongoose";
 
+const VALID_YEARS = ["FE", "SE", "TE", "BE"];
+
 export const createUser = async (req, res) => {
     try {
         if (!req.body) {
@@ -14,6 +16,10 @@ export const createUser = async (req, res) => {
 
         if (!email || !name || !password || !year) {
             return res.status(400).json({ success: false, message: 'Missing name or email' })
+        }
+
+        if (!VALID_YEARS.includes(year)) {
+            return res.status(400).json({ success: false, message: `Year must be one of ${VALID_YEARS.join(', ')}` })
         }
 
         if (password.length > 20) {
@@ -357,6 +363,13 @@ export const updateUserInfo = async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: "No parameters provided"
+            });
+        }
+
+        if (year && !VALID_YEARS.includes(year)) {
+            return res.status(400).json({
+                success: false,
+                message: `Year must be one of ${VALID_YEARS.join(', ')}`
             });
         }
 

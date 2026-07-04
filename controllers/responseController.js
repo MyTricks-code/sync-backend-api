@@ -179,7 +179,7 @@ export const getFormResponses = async (req, res) => {
             return res.json({ success: false, message: "Unauthorized to view these responses" })
         }
 
-        const rawResponses = await responseModel.find({ formId: formId }).sort({ averageScore: -1 }).populate({ path: 'userId', model: userModel, select: 'name email' }).lean()
+        const rawResponses = await responseModel.find({ formId: formId }).sort({ averageScore: -1 }).populate({ path: 'userId', model: userModel, select: '-password -verifyOtp -verifyOtpExpireAt -resetOtp -resetOtpExpireAt -googleId' }).lean()
 
         const responses = rawResponses.map((r) => {
             try {

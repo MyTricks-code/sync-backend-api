@@ -1,11 +1,17 @@
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }); // ✅ Fixed: was GEMINI_API_TOKEN
+if (!process.env.GEMINI_API_KEY) {
+  throw new Error(
+    "[ClassifyService] Missing GEMINI_API_KEY in environment — refusing to start."
+  );
+}
+
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const MODEL_CHAIN = [
   "gemini-2.5-flash",       // primary: best quality
   "gemini-2.5-flash-lite",  // fallback 1: faster, lighter
-  "gemini-2.0-flash-lite",  // fallback 2: older but different quota pool           
+  "gemini-2.0-flash-lite",  // fallback 2: older but different quota pool
 ];
 
 // ─── Tuning knobs ───────────────────────────────────────────────
@@ -13,6 +19,8 @@ const CHUNK_SIZE = 8;
 const BASE_DELAY_MS = 4_000;
 const MAX_RETRIES = 3;
 const MAX_CONCURRENT_CHUNKS = 2;
+const REQUEST_TIMEOUT_MS = 45_000;
+const WORKER_STAGGER_MS = 1_500;
 // ────────────────────────────────────────────────────────────────
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
@@ -24,8 +32,8 @@ function getRetryDelayMs(error, defaultMs = 15_000) {
       (d) => d["@type"] === "type.googleapis.com/google.rpc.RetryInfo"
     );
     if (retryInfo?.retryDelay) {
-      const seconds = parseFloat(retryInfo.retryDelay);
-      if (!isNaN(seconds)) return Math.ceil(seconds * 1000) + 1_000;
+      const match = String(retryInfo.retryDelay).match(/^(\d+(?:\.\d+)?)/);
+      if (match) return Math.ceil(parseFloat(match[1]) * 1000) + 1_000;
     }
   } catch (_) {}
   return defaultMs;
@@ -51,6 +59,36 @@ function parseErrorBody(err) {
   }
 }
 
+// Extract the outer JSON array even if the model leaks prose around it.
+function extractJsonArray(text) {
+  if (!text) return null;
+  const stripped = text
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/```\s*$/i, "")
+    .trim();
+  if (stripped.startsWith("[")) return stripped;
+  const first = stripped.indexOf("[");
+  const last = stripped.lastIndexOf("]");
+  if (first !== -1 && last > first) return stripped.slice(first, last + 1);
+  return null;
+}
+
+function withTimeout(promise, ms, label) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      const err = new Error(
+        `[ClassifyService] ${label} timed out after ${ms}ms`
+      );
+      err.status = "TIMEOUT";
+      reject(err);
+    }, ms);
+    promise.then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      (e) => { clearTimeout(timer); reject(e); }
+    );
+  });
+}
+
 function isValidEvent(item) {
   if (!item || typeof item !== "object") return false;
   if (!item.instagramId) return false;
@@ -72,7 +110,7 @@ function coerceDate(raw) {
   return null;
 }
 
-async function _classifyChunk(chunk, chunkLabel = "", delayMultiplier = 1) {
+async function _classifyChunk(chunk, chunkLabel, state) {
   const currentYear = new Date().getFullYear();
   const postsFormatted = chunk
     .map(
@@ -145,33 +183,62 @@ Omit any post without a confirmed date.
 ]
 `;
 
-  for (const model of MODEL_CHAIN) {
+  const availableModels = MODEL_CHAIN.filter(
+    (m) => !state.exhaustedModels.has(m)
+  );
+  if (!availableModels.length) {
+    const err = new Error(
+      `[ClassifyService] ${chunkLabel} All models daily-quota exhausted.`
+    );
+    err.reason = "daily-quota";
+    throw err;
+  }
+
+  for (const model of availableModels) {
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
         console.log(
           `[ClassifyService] ${chunkLabel} model="${model}" attempt=${attempt}/${MAX_RETRIES}`
         );
 
-        const response = await ai.models.generateContent({
-          model,
-          contents: prompt,
-        });
+        const response = await withTimeout(
+          ai.models.generateContent({
+            model,
+            contents: prompt,
+            config: { responseMimeType: "application/json" },
+          }),
+          REQUEST_TIMEOUT_MS,
+          `${chunkLabel} ${model}`
+        );
 
         const text = response.text ?? "";
-        const cleanJson = text
-          .replace(/^```(?:json)?\s*/i, "")
-          .replace(/```\s*$/i, "")
-          .trim();
+        if (!text.trim()) {
+          const finish = response.candidates?.[0]?.finishReason ?? "UNKNOWN";
+          console.warn(
+            `[ClassifyService] ${chunkLabel} Empty response (finishReason=${finish}) on attempt ${attempt}.`
+          );
+          if (attempt < MAX_RETRIES) continue;
+          return [];
+        }
+
+        const jsonText = extractJsonArray(text);
+        if (!jsonText) {
+          console.warn(
+            `[ClassifyService] ${chunkLabel} No JSON array in response on attempt ${attempt}.`
+          );
+          if (attempt < MAX_RETRIES) continue;
+          return [];
+        }
 
         let parsed;
         try {
-          parsed = JSON.parse(cleanJson);
+          parsed = JSON.parse(jsonText);
         } catch (jsonErr) {
           console.warn(
             `[ClassifyService] ${chunkLabel} JSON parse failed on attempt ${attempt} — retrying...`
           );
           if (attempt < MAX_RETRIES) continue;
-          throw jsonErr;
+          return [];
         }
 
         if (!Array.isArray(parsed)) {
@@ -181,64 +248,91 @@ Omit any post without a confirmed date.
           return [];
         }
 
-        return parsed
-          .map((item) => ({ ...item, date: coerceDate(item.date) }))
-          .filter(isValidEvent);
+        const seen = new Set();
+        const validated = [];
+        let dropped = 0;
+        for (const raw of parsed) {
+          const item = { ...raw, date: coerceDate(raw?.date) };
+          if (!isValidEvent(item)) { dropped++; continue; }
+          if (seen.has(item.instagramId)) continue;
+          seen.add(item.instagramId);
+          validated.push(item);
+        }
+        if (dropped) {
+          console.log(
+            `[ClassifyService] ${chunkLabel} Dropped ${dropped} invalid item(s) after validation.`
+          );
+        }
+        return validated;
       } catch (err) {
         const errBody = parseErrorBody(err);
         const status = errBody?.error?.code ?? err?.status;
         const is429 = String(status) === "429";
         const is503 = String(status) === "503";
-        const isRetryable = is429 || is503;
+        const isTimeout = status === "TIMEOUT";
+        const isRetryable = is429 || is503 || isTimeout;
 
         if (!isRetryable) throw err;
 
         if (is429 && isDailyQuotaExhausted(errBody)) {
+          state.exhaustedModels.add(model);
           console.warn(
-            `[ClassifyService] ${chunkLabel} Daily RPD quota on "${model}" — trying next model.`
+            `[ClassifyService] ${chunkLabel} Daily RPD quota on "${model}" — model marked exhausted for this batch.`
           );
           break;
         }
 
-        const waitMs = is503
-          ? Math.min(5_000 * 2 ** (attempt - 1) * delayMultiplier, 30_000)
+        const waitMs = is503 || isTimeout
+          ? Math.min(5_000 * 2 ** (attempt - 1) * state.delayMultiplier, 30_000)
           : getRetryDelayMs(errBody);
 
+        const kind = isTimeout
+          ? "timeout"
+          : is503
+          ? "503 overload"
+          : "429 rate limit";
         console.warn(
-          `[ClassifyService] ${chunkLabel} ${is503 ? "503 overload" : "429 rate limit"} on "${model}" ` +
+          `[ClassifyService] ${chunkLabel} ${kind} on "${model}" ` +
             `attempt ${attempt}/${MAX_RETRIES}. Waiting ${(waitMs / 1000).toFixed(1)}s...`
         );
         await sleep(waitMs);
 
-        if (attempt === MAX_RETRIES && is503) {
+        if (attempt === MAX_RETRIES && (is503 || isTimeout)) {
           console.warn(
-            `[ClassifyService] ${chunkLabel} "${model}" still 503 after ${MAX_RETRIES} tries — switching to next model.`
+            `[ClassifyService] ${chunkLabel} "${model}" still failing after ${MAX_RETRIES} tries — switching model.`
           );
         }
       }
     }
   }
 
-  throw new Error(`[ClassifyService] ${chunkLabel} All models in chain exhausted.`);
+  const err = new Error(
+    `[ClassifyService] ${chunkLabel} All models in chain exhausted.`
+  );
+  err.reason =
+    state.exhaustedModels.size === MODEL_CHAIN.length ? "daily-quota" : "retries";
+  throw err;
 }
 
 /**
- * Run up to `concurrency` chunk tasks at a time, with staggered starts
- * to spread the initial burst across the rate-limit window.
+ * Run up to `concurrency` chunk tasks at a time. Worker startups are staggered
+ * so the first N chunks don't fire against the API in the same instant.
  */
-async function runWithConcurrency(tasks, concurrency, staggerMs = 1_500) {
+async function runWithConcurrency(tasks, concurrency, staggerMs = WORKER_STAGGER_MS) {
   const results = new Array(tasks.length);
   let index = 0;
 
-  async function worker() {
+  async function worker(workerId) {
+    if (workerId > 0) await sleep(staggerMs * workerId);
     while (index < tasks.length) {
       const i = index++;
-      if (i > 0 && i % concurrency === 0) await sleep(staggerMs);
       results[i] = await tasks[i]();
     }
   }
 
-  await Promise.all(Array.from({ length: concurrency }, worker));
+  await Promise.all(
+    Array.from({ length: concurrency }, (_, id) => worker(id))
+  );
   return results;
 }
 
@@ -250,7 +344,7 @@ async function runWithConcurrency(tasks, concurrency, staggerMs = 1_500) {
  * @returns {Promise<Array>} - array of classified event objects
  */
 export async function classifyPostBatch(posts) {
-  if (!posts.length) return [];
+  if (!Array.isArray(posts) || !posts.length) return [];
 
   const chunks = [];
   for (let i = 0; i < posts.length; i += CHUNK_SIZE) {
@@ -262,31 +356,36 @@ export async function classifyPostBatch(posts) {
       `(size=${CHUNK_SIZE}, concurrency=${MAX_CONCURRENT_CHUNKS})`
   );
 
-  let dailyQuotaHit = false;
-  let delayMultiplier = 1;
+  const state = {
+    exhaustedModels: new Set(),
+    dailyQuotaHit: false,
+    delayMultiplier: 1,
+  };
 
   const tasks = chunks.map((chunk, idx) => async () => {
-    if (dailyQuotaHit) return [];
+    if (state.dailyQuotaHit) return [];
 
     const label = `[chunk ${idx + 1}/${chunks.length}]`;
 
-    if (idx > 0) await sleep(BASE_DELAY_MS * delayMultiplier);
+    if (idx > 0) await sleep(BASE_DELAY_MS * state.delayMultiplier);
 
     try {
-      const result = await _classifyChunk(chunk, label, delayMultiplier);
-      delayMultiplier = Math.max(1, delayMultiplier * 0.9);
+      const result = await _classifyChunk(chunk, label, state);
+      state.delayMultiplier = Math.max(1, state.delayMultiplier * 0.9);
       return result;
     } catch (err) {
-      if (
-        err.message.includes("Daily quota") ||
-        err.message.includes("DAILY_QUOTA")
-      ) {
-        dailyQuotaHit = true;
-        console.warn("[ClassifyService] Daily quota hit — halting all chunks.");
+      if (err.reason === "daily-quota") {
+        state.dailyQuotaHit = true;
+        console.warn(
+          "[ClassifyService] Daily quota exhausted across all models — halting remaining chunks."
+        );
         return [];
       }
-      delayMultiplier = Math.min(delayMultiplier * 1.5, 4);
-      console.error(`[ClassifyService] ${label} Skipped due to error:`, err.message);
+      state.delayMultiplier = Math.min(state.delayMultiplier * 1.5, 4);
+      console.error(
+        `[ClassifyService] ${label} Skipped due to error:`,
+        err.message
+      );
       return [];
     }
   });
@@ -294,9 +393,18 @@ export async function classifyPostBatch(posts) {
   const chunkResults = await runWithConcurrency(
     tasks,
     MAX_CONCURRENT_CHUNKS,
-    1_500
+    WORKER_STAGGER_MS
   );
-  const flat = chunkResults.flat();
+
+  const seen = new Set();
+  const flat = [];
+  for (const chunkResult of chunkResults) {
+    for (const item of chunkResult) {
+      if (seen.has(item.instagramId)) continue;
+      seen.add(item.instagramId);
+      flat.push(item);
+    }
+  }
 
   console.log(
     `[ClassifyService] Done. ${flat.length} events extracted from ${posts.length} posts.`
