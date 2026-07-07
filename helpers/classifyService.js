@@ -1,12 +1,16 @@
 import { GoogleGenAI } from "@google/genai";
 
-if (!process.env.GEMINI_API_KEY) {
-  throw new Error(
-    "[ClassifyService] Missing GEMINI_API_KEY in environment — refusing to start."
-  );
-}
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+// Lazily resolved so a missing key crashes the scrape job, not the entire server boot
+let ai = null;
+const getAI = () => {
+  if (!ai) {
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error("[ClassifyService] Missing GEMINI_API_KEY in environment.");
+    }
+    ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  }
+  return ai;
+};
 
 const MODEL_CHAIN = [
   "gemini-2.5-flash",       // primary: best quality
@@ -202,7 +206,7 @@ Omit any post without a confirmed date.
         );
 
         const response = await withTimeout(
-          ai.models.generateContent({
+          getAI().models.generateContent({
             model,
             contents: prompt,
             config: { responseMimeType: "application/json" },
