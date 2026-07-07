@@ -41,15 +41,19 @@ export async function runScrapeJob({ force = false, sinceDate = null } = {}) {
   console.log(`[Job] ${posts.length} posts after normalisation`);
 
   // ── 3. Save new posts ─────────────────────────────────────────────────────
-  let savedPosts = 0;
-  const newPosts = [];
+  // Single batch query instead of one findOne per post
+  const incomingIds = posts.map(p => p.instagramId);
+  const existingDocs = await Post.find(
+    { instagramId: { $in: incomingIds } },
+    { instagramId: 1 }
+  ).lean();
+  const existingIds = new Set(existingDocs.map(p => p.instagramId));
 
-  for (const post of posts) {
-    const exists = await Post.findOne({ instagramId: post.instagramId });
-    if (exists) continue;
-    await Post.create(post);
-    newPosts.push(post);
-    savedPosts++;
+  const newPosts = posts.filter(p => !existingIds.has(p.instagramId));
+  const savedPosts = newPosts.length;
+
+  if (newPosts.length > 0) {
+    await Post.insertMany(newPosts, { ordered: false }); // ordered:false continues on dup-key errors
   }
   console.log(`[Job] ${savedPosts} new posts saved (${posts.length - savedPosts} already existed)`);
 

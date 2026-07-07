@@ -21,6 +21,7 @@ const storage = cloudinaryStorage({
 
 const upload = multer({
   storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB cap — prevents OOM on 512MB droplet
   fileFilter: (_req, file, cb) => {
     if (ALLOWED_IMAGE_MIME_TYPES.has(String(file?.mimetype || "").toLowerCase())) {
       cb(undefined, true)

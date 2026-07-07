@@ -41,7 +41,10 @@ const adminOrUserAuth = async (req, res, next) => {
 
 					const org = await mongoose.connection
 						.collection('organization')
-						.findOne({ name: decodeToken.club });
+						.findOne(
+							{ name: decodeToken.club },
+							{ projection: { admins: 1 } }  // Only fetch what we need
+						);
 
 					const admin = org?.admins?.find(
 						item => item.email === decodeToken.email
@@ -63,9 +66,10 @@ const adminOrUserAuth = async (req, res, next) => {
 
 			const org = await mongoose.connection
 				.collection('organization')
-				.findOne({
-					name: decodeToken.club
-				});
+				.findOne(
+					{ name: decodeToken.club },
+					{ projection: { admins: 1 } }  // Only fetch what we need
+				);
 
 			const admin = org?.admins?.find(
 				item => item.email === decodeToken.email

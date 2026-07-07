@@ -16,11 +16,12 @@ export const getAllEvents = async (req, res) => {
       if (to) filter.date.$lte = new Date(to)
     }
 
-    // Backward compatible: when no `page` is requested, return the full list
-    // (used by the calendar view).
+    // Backward compatible: when no `page` is requested, return up to 500 events
+    // (used by the calendar view). Hard cap prevents memory exhaustion on the droplet.
     if (page === undefined) {
       const events = await Event.find(filter)
         .sort({ date: 1 })
+        .limit(500)
         .lean()
 
       return res.json({

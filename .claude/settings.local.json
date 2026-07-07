@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path D:\\\\code\\\\project\\\\sync\\\\sync-backend -Exclude node_modules -Recurse -File)",
+      "Bash(Select-Object FullName, Length)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(npm install *)",
+      "Bash(node --check index.js)",
+      "Bash(node --check config/mongoDB.js)",
+      "Bash(node --check config/nodeMailer.js)",
+      "Bash(node --check middlewares/upload.js)",
+      "Bash(node --check middlewares/adminOrUserAuth.js)",
+      "Bash(node --check controllers/eventController.js)"
+    ]
+  }
+}

@@ -1,33 +1,37 @@
 import express from "express";
-import cron from "node-cron"; // Added node-cron import
 import { getAllEvents, getEventById } from "../controllers/eventController.js";
 import { runScrapeJob } from "../jobs/scrape.job.js";
 
 const router = express.Router();
+
+// Guard for scrape endpoints — requires SCRAPE_SECRET env var to prevent
+// anyone from triggering costly Apify + Gemini API calls.
+const requireScrapeSecret = (req, res, next) => {
+  const secret = process.env.SCRAPE_SECRET;
+  const provided = req.headers['x-scrape-secret'] || req.body?.secret;
+  if (!secret || provided !== secret) {
+    return res.status(401).json({ success: false, message: 'Unauthorized' });
+  }
+  next();
+};
 
 router.get("/all", getAllEvents);
 
 router.get("/:id", getEventById);
 
 // Manual trigger for testing or forced updates
-router.post("/scrape/trigger", async (req, res) => {
+router.post("/scrape/trigger", requireScrapeSecret, async (req, res) => {
   const since8Days = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
   res.json({ message: "Forced scrape started — fetching posts from the last 8 days" });
-  
-  // Running in background and catching potential errors
   runScrapeJob({ force: true, sinceDate: since8Days }).catch(err => {
     console.error("Manual scrape triggered an error:", err);
   });
 });
 
-//Cron run from cron-job.org
-// Future : To implemnt bearer token to prevent direct server access from cron-job.org
-router.post("/scrape", async (req, res) => {
+// Cron run from cron-job.org — set x-scrape-secret header in cron-job.org request config
+router.post("/scrape", requireScrapeSecret, async (req, res) => {
   try {
-    // Call the job and capture its return value
     const result = await runScrapeJob();
-    
-    // Send the result back to cron-job.org
     return res.json(result);
   } catch (error) {
     console.error("[App] Failed to run scrape job:", error);

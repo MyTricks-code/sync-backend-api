@@ -32,7 +32,13 @@ const connectDB = async () => {
     // 4. Connect with an extended buffer timeout to handle slow initial DNS resolution
     mongoose.set('bufferTimeoutMS', 45000);
     try {
-        await mongoose.connect(mongoUri);
+        await mongoose.connect(mongoUri, {
+            maxPoolSize: 10,           // Conservative for 512MB droplet
+            minPoolSize: 2,            // Keep 2 connections warm
+            connectTimeoutMS: 10000,
+            socketTimeoutMS: 45000,
+            serverSelectionTimeoutMS: 10000,
+        });
     } catch (error) {
         console.error(`[Database] Initial connection failed: ${error.message}`);
         process.exit(1);
