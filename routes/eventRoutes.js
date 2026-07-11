@@ -21,9 +21,9 @@ router.get("/:id", getEventById);
 
 // Manual trigger for testing or forced updates
 router.post("/scrape/trigger", requireScrapeSecret, async (req, res) => {
-  const since8Days = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+  const since2Days = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
   res.json({ message: "Forced scrape started — fetching posts from the last 2 days" });
-  runScrapeJob({ force: true, sinceDate: since8Days }).catch(err => {
+  runScrapeJob({ force: true, sinceDate: since2Days }).catch(err => {
     console.error("Manual scrape triggered an error:", err);
   });
 });

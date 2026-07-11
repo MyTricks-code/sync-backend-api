@@ -11,7 +11,7 @@ import { findOrg } from "../middlewares/resolveOrg.js";
 const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
 
 export async function runScrapeJob({ force = false, sinceDate = null } = {}) {
-  const actualSinceDate = sinceDate || new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+  const actualSinceDate = sinceDate || new Date(Date.now() - TWO_DAYS_MS);
 
   const jobStart = Date.now();
   console.log(`[Job] Starting scrape... (force=${force}, sinceDate=${actualSinceDate.toISOString()})`);
@@ -64,10 +64,13 @@ export async function runScrapeJob({ force = false, sinceDate = null } = {}) {
 
   let postsToClassify = [];
   if (force) {
-    for (const post of posts) {
-      const hasEvent = await Event.findOne({ instagramId: post.instagramId }).lean();
-      if (!hasEvent) postsToClassify.push(post);
-    }
+    const allIds = posts.map(p => p.instagramId);
+    const existingEvents = await Event.find(
+      { instagramId: { $in: allIds } },
+      { instagramId: 1 }
+    ).lean();
+    const classifiedIds = new Set(existingEvents.map(e => e.instagramId));
+    postsToClassify = posts.filter(p => !classifiedIds.has(p.instagramId));
     console.log(`[Job] Force mode — ${postsToClassify.length} of ${posts.length} posts unclassified, sending to Gemini...`);
   } else {
     postsToClassify = newPosts;
