@@ -137,11 +137,14 @@ STEP 1 — FILTER: Does this post announce a FUTURE or UPCOMING event?
            → Must have a specific date. Must be inviting attendance.
 
 ❌ EXCLUDE (return nothing for these):
-  - Winner / result announcements        ("Congratulations to...")
-  - Recruitment / selection posts        ("Join our team", "Applications open")
+  - Winner / result announcements        ("Congratulations to...", "Results are out")
+  - Recruitment announcements with NO date ("Join our team", "Applications open", "Fill the form")
   - Recap / throwback posts              ("Last week was amazing...")
   - Motivational / awareness content     (no event, no date)
   - Posts with ZERO extractable date     → OMIT entirely, do NOT guess
+
+⚠️  IMPORTANT: If a recruitment/interview post has a specific date, time, and venue
+   (e.g. "Walk-in interviews on 8 July at 6 PM, E-Cell room") → INCLUDE it as an event.
 
 ═══════════════════════════════════════
 STEP 2 — DATE EXTRACTION (convert to YYYY-MM-DD, MANDATORY)
