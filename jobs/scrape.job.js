@@ -8,10 +8,10 @@ import sendEmail from "../helpers/sendEmail.js";
 import { generateEventEmail } from "../helpers/Generateeventemail.js";
 import { findOrg } from "../middlewares/resolveOrg.js";
 
-const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
 
 export async function runScrapeJob({ force = false, sinceDate = null } = {}) {
-  const actualSinceDate = sinceDate || new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+  const actualSinceDate = sinceDate || new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
 
   const jobStart = Date.now();
   console.log(`[Job] Starting scrape... (force=${force}, sinceDate=${actualSinceDate.toISOString()})`);
@@ -20,10 +20,10 @@ export async function runScrapeJob({ force = false, sinceDate = null } = {}) {
     const lastLog = await ScrapeLog.findOne().sort({ createdAt: -1 }).lean();
     if (lastLog) {
       const age = Date.now() - new Date(lastLog.createdAt).getTime();
-      if (age < ONE_WEEK_MS) {
+      if (age < TWO_DAYS_MS) {
         const hoursAgo = (age / 3_600_000).toFixed(1);
-        const message = `[Job] Skipping — last scrape was ${hoursAgo}h ago (< 1 week). ` +
-          `Next run allowed after ${new Date(new Date(lastLog.createdAt).getTime() + ONE_WEEK_MS).toISOString()}`;
+        const message = `[Job] Skipping — last scrape was ${hoursAgo}h ago (< 2 days). ` +
+          `Next run allowed after ${new Date(new Date(lastLog.createdAt).getTime() + TWO_DAYS_MS).toISOString()}`;
         console.log(message);
         return { message, skipped: true };
       }
