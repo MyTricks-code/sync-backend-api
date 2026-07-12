@@ -2,7 +2,15 @@ import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
 
 const adminOrUserAuth = async (req, res, next) => {
-	const { token, adminToken } = req.cookies;
+	let { token, adminToken } = req.cookies;
+
+	// Fall back to Authorization: Bearer header for user token (mobile browsers block cross-origin cookies)
+	if (!token) {
+		const authHeader = req.headers.authorization;
+		if (authHeader && authHeader.startsWith('Bearer ')) {
+			token = authHeader.slice(7);
+		}
+	}
 
 	try {
 		if (token) {
