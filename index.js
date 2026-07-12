@@ -54,12 +54,15 @@ const limiter = rateLimit({
   message: { success: false, message: 'Too many requests, please try again later.' }
 });
 
-// Tighter limit for auth — prevents brute-force and OTP bombing
+// Tighter limit for auth — prevents brute-force and OTP bombing.
+// Skips get-user-info because checkAuth is called on every page load and would
+// otherwise burn through the bucket, blocking legitimate logins.
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 30,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.originalUrl.startsWith('/api/auth/get-user-info'),
   message: { success: false, message: 'Too many attempts, please try again in 15 minutes.' }
 });
 
