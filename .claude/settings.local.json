@@ -10,7 +10,9 @@
       "Bash(node --check config/nodeMailer.js)",
       "Bash(node --check middlewares/upload.js)",
       "Bash(node --check middlewares/adminOrUserAuth.js)",
-      "Bash(node --check controllers/eventController.js)"
+      "Bash(node --check controllers/eventController.js)",
+      "Bash(node --check \"D:\\\\code\\\\project\\\\sync\\\\sync-backend\\\\helpers\\\\classifyService.js\")",
+      "WebFetch(domain:139.59.86.162)"
     ]
   }
 }
