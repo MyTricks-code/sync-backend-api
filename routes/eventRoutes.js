@@ -1,5 +1,5 @@
 import express from "express";
-import { getAllEvents, getEventById } from "../controllers/eventController.js";
+import { getAllEvents, getEventById, getEventReport } from "../controllers/eventController.js";
 import { runScrapeJob } from "../jobs/scrape.job.js";
 
 const router = express.Router();
@@ -16,6 +16,7 @@ const requireScrapeSecret = (req, res, next) => {
 };
 
 router.get("/all", getAllEvents);
+router.get("/report", getEventReport);
 
 router.get("/:id", getEventById);
 

@@ -1,4 +1,5 @@
 import Event from "../models/eventModel.js"
+import { generateEventReport } from "../helpers/generateEventReport.js"
 
 // ---sare events k liye
 export const getAllEvents = async (req, res) => {
@@ -82,6 +83,35 @@ export const getAllEvents = async (req, res) => {
   }
 }
 
+
+// --- PDF report of all events (sorted most recent first)
+export const getEventReport = async (req, res) => {
+  try {
+    const { club, from, to } = req.query
+
+    let filter = {}
+    if (club) filter.club = club
+    if (from || to) {
+      filter.date = {}
+      if (from) filter.date.$gte = new Date(from)
+      if (to) filter.date.$lte = new Date(to)
+    }
+
+    const events = await Event.find(filter)
+      .sort({ date: -1 }) // most recent first
+      .lean()
+
+    const today = new Date().toISOString().slice(0, 10)
+    const filename = `ait-club-events-${today}.pdf`
+
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`)
+
+    generateEventReport(res, events)
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message })
+  }
+}
 
 // --- ek event k liye
 export const getEventById = async (req, res) => {

@@ -110,18 +110,24 @@ All routes are prefixed with `/api`.
 
 ### 🔐 Auth — `/api/auth`
 
-| Method | Endpoint | Auth Required | Description |
-|--------|----------|:-------------:|-------------|
-| `POST` | `/register` | ❌ | Register a new user |
-| `POST` | `/login` | ❌ | Login with email & password |
-| `POST` | `/logout` | ❌ | Logout (clears cookie) |
-| `POST` | `/verify-otp` | ✅ | Send email verification OTP |
-| `POST` | `/verify-account` | ✅ | Verify account with OTP |
-| `POST` | `/forget-password` | ❌ | Send forgot-password OTP |
-| `POST` | `/verify-forget-otp` | ❌ | Verify OTP & reset password |
-| `POST` | `/update-user-info` | ✅ | Update profile information |
-| `POST` | `/google-auth` | ❌ | Sign in / Sign up via Google |
-| `GET` | `/get-user-info` | ✅ | Fetch authenticated user's profile |
+> **Note — Email/Password auth is intentionally disabled.**
+> Applicants must sign in and register via Google OAuth only.
+> The commented-out routes and controller functions are preserved in
+> `routes/authRoutes.js` and `controllers/userController.js` and can be
+> re-enabled by uncommenting them there.
+
+| Method | Endpoint | Auth Required | Status | Description |
+|--------|----------|:-------------:|:------:|-------------|
+| ~~`POST`~~ | ~~`/register`~~ | ❌ | 🚫 Disabled | ~~Register a new user with email & password~~ |
+| ~~`POST`~~ | ~~`/login`~~ | ❌ | 🚫 Disabled | ~~Login with email & password~~ |
+| `POST` | `/logout` | ❌ | ✅ Active | Logout (clears cookie) |
+| ~~`POST`~~ | ~~`/verify-otp`~~ | ✅ | 🚫 Disabled | ~~Send email verification OTP~~ |
+| ~~`POST`~~ | ~~`/verify-account`~~ | ✅ | 🚫 Disabled | ~~Verify account with OTP~~ |
+| ~~`POST`~~ | ~~`/forget-password`~~ | ❌ | 🚫 Disabled | ~~Send forgot-password OTP~~ |
+| ~~`POST`~~ | ~~`/verify-forget-otp`~~ | ❌ | 🚫 Disabled | ~~Verify OTP & reset password~~ |
+| `POST` | `/update-user-info` | ✅ | ✅ Active | Update profile information |
+| `POST` | `/google-auth` | ❌ | ✅ Active | Sign in / Sign up via Google |
+| `GET` | `/get-user-info` | ✅ | ✅ Active | Fetch authenticated user's profile |
 
 ### 📋 Forms — `/api/forms`
 
