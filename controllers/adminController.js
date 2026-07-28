@@ -297,7 +297,7 @@ export const verifyAdminOtp = async (req, res) => {
 
     // CREATE TOKEN (7 DAYS)
     const token = jwt.sign(
-      { email: admin.email, club: club, role: admin.role, adminId: admin.userId },
+      { email: admin.email, club: club, role: admin.role || 'Admin', adminId: admin.userId },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -486,7 +486,8 @@ export const getAdminInfo = async (req, res) => {
           name: org.name || club,
           abbr: org.abbr || club,
           logo: org.logo || org.img,
-          role: admin.role || 'Admin'
+          role: admin.role || 'Admin',
+          budget: org.clubBudget || 0
         }
       }
     });
@@ -496,10 +497,7 @@ export const getAdminInfo = async (req, res) => {
 };
 
 export const getAllMembers = async (req, res) => {
-  if (!req.body) {
-    return res.json({ success: false, message: "Missing credentials" });
-  }
-  const { club } = req.body;
+  const club = req.admin?.club || req.body?.club;
   if (!club) {
     return res.json({ success: false, message: "Missing credentials" });
   }
@@ -509,7 +507,9 @@ export const getAllMembers = async (req, res) => {
       return res.json({ success: false, message: "Organization not found" });
     }
 
-    const memberIds = org.members || [];
+    const memberIds = (org.members || [])
+      .filter(id => id)
+      .map(id => new mongoose.Types.ObjectId(id));
     const populatedMembers = await userModel.find({ _id: { $in: memberIds } }).select('name role email').lean();
 
     return res.json({
@@ -642,3 +642,38 @@ export const removeSecretary = async (req, res) => {
   }
 };
 
+export const updateBudget = async (req, res) => {
+  try {
+    const { org } = await resolveCallerOrgRole(req);
+    if (!org) {
+      return res.json({ success: false, message: "Organization not found" });
+    }
+
+    const budget = typeof req.body?.clubBudget === 'number' ? req.body.clubBudget : Number(req.body?.clubBudget);
+    
+    if (isNaN(budget) || budget < 0) {
+      return res.json({ success: false, message: "Valid club budget is required" });
+    }
+
+    await mongoose.connection.collection("organization").updateOne(
+      { _id: org._id },
+      { $set: { clubBudget: budget } }
+    );
+
+    return res.json({ success: true, message: "Budget updated successfully", clubBudget: budget });
+  } catch (err) {
+    return res.json({ success: false, message: err.message });
+  }
+};
+
+export const getBudget = async (req, res) => {
+  try {
+    const { org } = await resolveCallerOrgRole(req);
+    if (!org) {
+      return res.json({ success: false, message: "Organization not found" });
+    }
+    return res.json({ success: true, clubBudget: org.clubBudget || 0 });
+  } catch (err) {
+    return res.json({ success: false, message: err.message });
+  }
+};

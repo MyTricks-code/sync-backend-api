@@ -20,7 +20,7 @@ const VALID_ROLES = ['director', 'principal', 'jd'];
 
 // Edit this list for bulk seeding (used when no CLI args are passed).
 const SEED_ADMINS = [
-  { name: 'Vishal Goswami', email: 'vishalaiforkids@gmail.com', role: 'director' },
+  { name: 'Vishal Goswami', email: 'vishalaiforkids@gmail.com', role: 'principal' },
   // { name: 'Dr. B. Principal', email: 'principal@aitpune.edu.in', role: 'principal' },
   // { name: 'Dr. C. JointDirector', email: 'jd@aitpune.edu.in', role: 'jd' },
 ];
@@ -82,7 +82,7 @@ async function run() {
         $set: { name: a.name.trim(), role: a.role, isActive: true },
         $setOnInsert: { email },
       },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     );
     console.log(`[Seed] Upserted SuperAdmin → ${result.email} (${result.role})`);
   }

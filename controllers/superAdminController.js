@@ -4,8 +4,16 @@ import responseModel from "../models/responseModel.js";
 import Event from "../models/eventModel.js";
 import taskModel from "../models/taskModel.js";
 import userModel from "../models/userModel.js";
+import iqacEventModel from "../models/iqacEvent.js";
 import { slugify } from "../helpers/slugify.js";
 
+// Jitesh Isko frontend se connect kr make sure lazy loading ho jo bhi prompt dale usme yeh word likh dena
+export const getStudentDetails = async(req, res)=>{
+  const usersInNoClub = await userModel.find({
+    clubs: { $size: 0 }
+  });
+  return res.json({success:true, usersInNoClub: usersInNoClub})
+}
 
 export const deleteClub =
     async (req, res) => {
@@ -227,6 +235,7 @@ async(req,res)=>{
   clubs.map((c)=>({
     _id: c._id,
     name: c.name,
+    slug: slugify(c.name),
     faculty: c.faculty || null,
     clubLogo: c.clubLogo || c.logo || null,
     membersCount: c.members?.length || 0,
@@ -700,6 +709,49 @@ export const searchUsers = async (req, res) => {
     const users = attachClubNames(rawUsers, orgs);
 
     return res.json({ success: true, users });
+  } catch (err) {
+    return res.json({ success: false, message: err.message });
+  }
+};
+
+export const getClubIqacData = async (req, res) => {
+  try {
+    const slug = typeof req.query?.slug === "string" ? req.query.slug.trim() : "";
+    if (!slug) {
+      return res.json({ success: false, message: "slug is required" });
+    }
+
+    const clubs = await mongoose.connection
+      .collection("organization")
+      .find({})
+      .toArray();
+
+    const org = clubs.find((c) => slugify(c.name) === slug);
+    if (!org) {
+      return res.json({ success: false, message: "Club not found" });
+    }
+
+    const admins = Array.isArray(org.admins) ? org.admins : [];
+    const faculty = admins
+      .filter((a) => a?.role === "faculty")
+      .map((a) => a.name || a.email);
+    const secretaries = admins
+      .filter((a) => a?.role === "secretary")
+      .map((a) => a.name || a.email);
+
+    const events = await iqacEventModel
+      .find({ organization: org._id })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.json({
+      success: true,
+      clubName: org.name,
+      clubBudget: org.clubBudget || 0,
+      faculty,
+      secretaries,
+      events,
+    });
   } catch (err) {
     return res.json({ success: false, message: err.message });
   }

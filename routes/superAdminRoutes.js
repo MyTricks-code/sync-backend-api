@@ -1,10 +1,14 @@
 import express from 'express';
-import { changeFaculty, createOrganization, deleteClub , getGlobalDashboard, generateIqacReport, generateQuarterReport, addFaculty, getFaculties, removeFaculty, getClubsOverview, getClubDetail, searchUsers } from '../controllers/superAdminController.js';
+import {getStudentDetails, changeFaculty, createOrganization, deleteClub , getGlobalDashboard, generateIqacReport, generateQuarterReport, addFaculty, getFaculties, removeFaculty, getClubsOverview, getClubDetail, searchUsers, getClubIqacData } from '../controllers/superAdminController.js';
 import adminAuth from '../middlewares/adminAuth.js';
 import { roleGuard } from '../middlewares/roleGuard.js';
 import { resolveOrg } from '../middlewares/resolveOrg.js';
 
 const superAdminRouter = express.Router();
+
+
+
+superAdminRouter.get("/get-users-no-club", adminAuth, roleGuard('director', 'principal', 'jd'), getStudentDetails);
 
 superAdminRouter.post('/create-club', adminAuth, roleGuard('director', 'principal', 'jd'), createOrganization);
 
@@ -65,5 +69,7 @@ superAdminRouter.get('/clubs-overview', adminAuth, roleGuard('director', 'princi
 superAdminRouter.get('/club-detail', adminAuth, roleGuard('director', 'principal', 'jd'), getClubDetail);
 
 superAdminRouter.get('/search-users', adminAuth, roleGuard('director', 'principal', 'jd'), searchUsers);
+
+superAdminRouter.get('/club-iqac-data', adminAuth, roleGuard('director', 'principal', 'jd'), getClubIqacData);
 
 export default superAdminRouter;

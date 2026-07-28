@@ -1,5 +1,5 @@
 import express from 'express'
-import { addMember, adminLogin, adminLogout, deleteMember, getAllOrg, getAdminInfo, getAllMembers, getSecretaries, addSecretary, removeSecretary } from '../controllers/adminController.js'
+import { addMember, adminLogin, adminLogout, deleteMember, getAllOrg, getAdminInfo, getAllMembers, getSecretaries, addSecretary, removeSecretary, updateBudget, getBudget } from '../controllers/adminController.js'
 import adminAuth from '../middlewares/adminAuth.js'
 import memberIdForAdmin from '../middlewares/memberIdforAdmin.js'
 import { verifyAdminOtp } from '../controllers/adminController.js'
@@ -17,5 +17,7 @@ adminRouter.get('/get-club-members', adminAuth, getAllMembers)
 adminRouter.get('/get-secretaries', adminAuth, getSecretaries)
 adminRouter.post('/add-secretary', adminAuth, addSecretary)
 adminRouter.post('/remove-secretary', adminAuth, removeSecretary)
+adminRouter.put('/update-budget', adminAuth, updateBudget)
+adminRouter.get('/get-budget', adminAuth, getBudget)
 
 export default adminRouter

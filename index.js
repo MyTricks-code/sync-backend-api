@@ -12,6 +12,7 @@ import adminRouter from './routes/adminRoutes.js';
 import eventsRouter from "./routes/eventRoutes.js";
 import postRouter from './routes/postRoutes.js';
 import superAdminRouter from './routes/superAdminRoutes.js';
+import iqacEventRouter from './routes/iqacEventRoutes.js';
 import compression from 'compression';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -80,6 +81,7 @@ app.use('/api/response', responseRouter);
 app.use('/api/admin', adminRouter);
 app.use("/api/post", postRouter);
 app.use("/api/events", eventsRouter);
+app.use("/api/iqacevents", iqacEventRouter);
 app.use("/api/superadmin", superAdminRouter);
 
 // Graceful shutdown so the process doesn't hang on SIGTERM from the droplet

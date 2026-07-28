@@ -33,6 +33,13 @@ const organizationSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: "Form"
     }
+  ],
+
+  iqacEvents: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "iqacEvent"
+    }
   ]
 
 }, { timestamps: true });
