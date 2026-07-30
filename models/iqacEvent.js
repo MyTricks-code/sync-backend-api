@@ -18,7 +18,8 @@ const iqacEvent = new mongoose.Schema({
     facultyParticipation : {type: Number, default : 0},
     description : [{type: String}],
     objectives: [{type: String}],
-    pos: [{type: String}]
+    pos: [{type: String}],
+    overview: [{type: String}]
 })
 const iqacModel = mongoose.model.iqacEvent || mongoose.model('iqacEvent', iqacEvent)
 export default iqacModel

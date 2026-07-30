@@ -1,5 +1,5 @@
 import express from 'express'
-import { addMember, adminLogin, adminLogout, deleteMember, getAllOrg, getAdminInfo, getAllMembers, getSecretaries, addSecretary, removeSecretary, updateBudget, getBudget } from '../controllers/adminController.js'
+import { addMember, adminLogin, adminLogout, deleteMember, getAllOrg, getAdminInfo, getAllMembers, getSecretaries, addSecretary, removeSecretary, updateBudget, getBudget, getVisionMission, updateVisionMission } from '../controllers/adminController.js'
 import adminAuth from '../middlewares/adminAuth.js'
 import memberIdForAdmin from '../middlewares/memberIdforAdmin.js'
 import { verifyAdminOtp } from '../controllers/adminController.js'
@@ -19,5 +19,7 @@ adminRouter.post('/add-secretary', adminAuth, addSecretary)
 adminRouter.post('/remove-secretary', adminAuth, removeSecretary)
 adminRouter.put('/update-budget', adminAuth, updateBudget)
 adminRouter.get('/get-budget', adminAuth, getBudget)
+adminRouter.get('/get-vision-mission', adminAuth, getVisionMission)
+adminRouter.put('/update-vision-mission', adminAuth, updateVisionMission)
 
 export default adminRouter

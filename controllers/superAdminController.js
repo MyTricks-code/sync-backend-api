@@ -809,6 +809,8 @@ export const getClubIqacData = async (req, res) => {
       success: true,
       clubName: org.name,
       clubBudget: org.clubBudget || 0,
+      vision: org.vision || '',
+      mission: org.mission || '',
       faculty,
       secretaries,
       events,
