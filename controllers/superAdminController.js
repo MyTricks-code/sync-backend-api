@@ -9,10 +9,71 @@ import { slugify } from "../helpers/slugify.js";
 
 // Jitesh Isko frontend se connect kr make sure lazy loading ho jo bhi prompt dale usme yeh word likh dena
 export const getStudentDetails = async(req, res)=>{
-  const usersInNoClub = await userModel.find({
-    clubs: { $size: 0 }
-  });
-  return res.json({success:true, usersInNoClub: usersInNoClub})
+  try {
+      const orgs = await mongoose.connection
+          .collection("organization")
+          .find({})
+          .project({ name: 1, clubLogo: 1, logo: 1 })
+          .toArray();
+
+      const orgMap = new Map();
+      orgs.forEach(org => {
+          orgMap.set(String(org._id), {
+              _id: org._id,
+              name: org.name,
+              clubLogo: org.clubLogo || org.logo || null
+          });
+      });
+
+      const rawStudents = await userModel.find({})
+          .select("name email clubs year branch regnNo")
+          .lean();
+
+      let unassignedStudents = 0;
+      let studentsInOneClub = 0;
+      let studentsInTwoClubs = 0;
+      let studentsInThreeOrMoreClubs = 0;
+      let assignedStudents = 0;
+
+      const students = rawStudents.map(student => {
+          const studentClubs = (student.clubs || []).map(id => orgMap.get(String(id))).filter(Boolean);
+          const clubCount = studentClubs.length;
+
+          if (clubCount === 0) unassignedStudents++;
+          else {
+              assignedStudents++;
+              if (clubCount === 1) studentsInOneClub++;
+              else if (clubCount === 2) studentsInTwoClubs++;
+              else studentsInThreeOrMoreClubs++;
+          }
+
+          return {
+              _id: student._id,
+              name: student.name,
+              email: student.email,
+              year: student.year,
+              branch: student.branch,
+              regnNo: student.regnNo,
+              clubs: studentClubs,
+              clubCount: clubCount
+          };
+      });
+
+      return res.json({
+          success: true,
+          summary: {
+              totalStudents: students.length,
+              unassignedStudents,
+              assignedStudents,
+              studentsInOneClub,
+              studentsInTwoClubs,
+              studentsInThreeOrMoreClubs
+          },
+          students: students
+      });
+  } catch(err) {
+      return res.json({ success: false, message: err.message });
+  }
 }
 
 export const deleteClub =

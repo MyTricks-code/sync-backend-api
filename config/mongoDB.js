@@ -29,19 +29,31 @@ const connectDB = async () => {
         }
     });
 
-    // 4. Connect with an extended buffer timeout to handle slow initial DNS resolution
+    // 4. Connect with extended timeouts and retries
     mongoose.set('bufferTimeoutMS', 45000);
-    try {
-        await mongoose.connect(mongoUri, {
-            maxPoolSize: 10,           // Conservative for 512MB droplet
-            minPoolSize: 2,            // Keep 2 connections warm
-            connectTimeoutMS: 10000,
-            socketTimeoutMS: 45000,
-            serverSelectionTimeoutMS: 10000,
-        });
-    } catch (error) {
-        console.error(`[Database] Initial connection failed: ${error.message}`);
-        process.exit(1);
+    
+    let retries = 5;
+    while(retries) {
+        try {
+            await mongoose.connect(mongoUri, {
+                maxPoolSize: 10,
+                minPoolSize: 2,
+                connectTimeoutMS: 30000,
+                socketTimeoutMS: 45000,
+                serverSelectionTimeoutMS: 30000,
+                family: 4
+            });
+            break;
+        } catch (error) {
+            console.error(`[Database] Initial connection failed: ${error.message}`);
+            retries -= 1;
+            if (!retries) {
+                console.error("[Database] All connection retries failed. Exiting.");
+                process.exit(1);
+            }
+            console.log(`[Database] Retrying connection... (${retries} retries left)`);
+            await new Promise(res => setTimeout(res, 5000));
+        }
     }
 };
 
